@@ -27,21 +27,35 @@ if not gemma_command
   end
 end
 
+require 'fileutils'
 require 'optparse'
+require 'tmpdir'
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command }
+split_at = ARGV.index('--')
+if split_at
+  gemma_args = ARGV[split_at+1..-1]
+end
+
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, gemma_args: gemma_args, cache_dir: Dir.tmpdir() }
 
 opts = OptionParser.new do |o|
-  o.banner = "Usage: #{File.basename($0)} [options] filename\ne.g.  #{File.basename($0)} < test/data/input/somaticsniper.vcf"
+  o.banner = "Usage: #{File.basename($0)} [options] [gemma-options]"
 
   # o.on('-i','--ignore-missing', 'Ignore missing data') do
   #   options[:ignore_missing] = true
   # end
-  # o.on('--filter cmd',String, 'Evaluate filter on each record') do |cmd|
-  #   options[:filter] = cmd
-  # end
+  o.on('--') do
+    o.terminate()
+  end
+  o.on('--cache-dir path',String, 'Use a cache directory') do |path|
+    options[:cache_dir] = path
+  end
 
-  o.on("-q", "--quiet", "Run quietly") do |q|
+  o.on("--force", "Force computation") do |q|
+    options[:force] = true
+  end
+
+  o.on("--q", "--quiet", "Run quietly") do |q|
     options[:quiet] = true
   end
 
@@ -75,9 +89,58 @@ if RUBY_VERSION =~ /^1/
   $stderr.print "WARNING: runs on Ruby 2.x only\n"
 end
 
-$stderr.print "Options: ",options,"\n" if !options[:quiet]
+# Compute HASH on inputs
+hashme = []
+geno_idx = gemma_args.index '-g'
+raise "Expected GEMMA -g switch" if geno_idx == nil
+hashme = gemma_args
+
+require 'digest/sha1'
+$stderr.print "Hashing on ",hashme,"\n" if options[:debug]
+hashes = []
+hashme.each do | item |
+  if File.exist?(item)
+    hashes << Digest::SHA1.hexdigest(File.read(item))
+    p [item,hashes.last] if options[:debug]
+  else
+    hashes << item
+  end
+end
+HASH = Digest::SHA1.hexdigest hashes.join(' ')
+
+options[:hash] = HASH
+
+# Create cache dir
+FileUtils::mkdir_p options[:cache_dir]
+
+raise "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
+gemma_args << '-o'
+gemma_args << HASH
+raise "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
+gemma_args << '-outdir'
+gemma_args << options[:cache_dir]
 
 # Check gemma version
-gemma_version_hdr = `#{options[:gemma_command]}`.split("\n").grep(/Version/)[0].strip
-print "Using GEMMA ",gemma_version_hdr,"\n"
-gemma_version = gemma_version_hdr.split(/[,\s]+/)[1]
+GEMMA_COMMAND=options[:gemma_command]
+gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
+print "Using GEMMA ",gemma_version_header,"\n"
+gemma_version = gemma_version_header.split(/[,\s]+/)[1]
+
+options[:gemma_version_header] = gemma_version_header
+options[:gemma_version] = gemma_version
+options[:gemma_args] = gemma_args
+
+$stderr.print "Options: ",options,"\n" if !options[:quiet]
+
+if !options[:force] and gemma_args.include? '-gk'
+  # kinship computation
+  check_fn = options[:cache_dir]+'/'+HASH+'.log.txt'
+  if File.exist? check_fn
+    if File.read(check_fn).include? "time on calculating relatedness matrix"
+      print "#{check_fn} gemma-k-handler CACHE HIT!\n"
+      exit 0
+    end
+  end
+end
+# Now execute GEMMA
+print `#{GEMMA_COMMAND} #{gemma_args.join(' ')}`
