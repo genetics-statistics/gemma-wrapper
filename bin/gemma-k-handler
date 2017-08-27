@@ -1,0 +1,65 @@
+#! /usr/bin/env ruby
+#
+# gemma-k-handler
+# Author:: Pjotr Prins
+# License:: GPL3
+#
+# Copyright (C) 2017 Pjotr Prins <pjotr.prins@thebird.nl>
+
+USAGE = "GEMMA K handler"
+
+basepath = File.dirname(File.dirname(__FILE__))
+$: << File.join(basepath,'lib')
+
+VERSION_FILENAME=File.join(basepath,'VERSION')
+version = File.new(VERSION_FILENAME).read.chomp
+
+require 'optparse'
+
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s }
+
+opts = OptionParser.new do |o|
+  o.banner = "Usage: #{File.basename($0)} [options] filename\ne.g.  #{File.basename($0)} < test/data/input/somaticsniper.vcf"
+
+  # o.on('-i','--ignore-missing', 'Ignore missing data') do
+  #   options[:ignore_missing] = true
+  # end
+  # o.on('--filter cmd',String, 'Evaluate filter on each record') do |cmd|
+  #   options[:filter] = cmd
+  # end
+
+  o.on("-q", "--quiet", "Run quietly") do |q|
+    options[:quiet] = true
+  end
+
+  o.on("-v", "--verbose", "Run verbosely") do |v|
+    options[:verbose] = true
+  end
+
+  o.on("--debug", "Show debug messages and keep intermediate output") do |v|
+    options[:debug] = true
+  end
+
+  o.separator ""
+  o.on_tail('-h', '--help', 'display this help and exit') do
+    options[:show_help] = true
+  end
+end
+
+opts.parse!(ARGV)
+
+GEMMA_K_VERSION=version
+GEMMA_K_BANNER = "gemma-k-handler #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
+$stderr.print GEMMA_K_BANNER if !options[:quiet]
+
+if options[:show_help]
+  print opts
+  print USAGE
+  exit 1
+end
+
+if RUBY_VERSION =~ /^1/
+  $stderr.print "WARNING: runs on Ruby 2.x only\n"
+end
+
+$stderr.print "Options: ",options,"\n" if !options[:quiet]
