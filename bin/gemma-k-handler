@@ -14,9 +14,22 @@ $: << File.join(basepath,'lib')
 VERSION_FILENAME=File.join(basepath,'VERSION')
 version = File.new(VERSION_FILENAME).read.chomp
 
+gemma_command = ENV['GEMMA_COMMAND']
+
+# Look for gemma
+if not gemma_command
+  ENV['PATH'].split(':').each do | path |
+    try_bin = path + '/' + 'gemma'
+    if File.executable?(try_bin)
+      gemma_command = try_bin
+      break
+    end
+  end
+end
+
 require 'optparse'
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command }
 
 opts = OptionParser.new do |o|
   o.banner = "Usage: #{File.basename($0)} [options] filename\ne.g.  #{File.basename($0)} < test/data/input/somaticsniper.vcf"
@@ -63,3 +76,8 @@ if RUBY_VERSION =~ /^1/
 end
 
 $stderr.print "Options: ",options,"\n" if !options[:quiet]
+
+# Check gemma version
+gemma_version_hdr = `#{options[:gemma_command]}`.split("\n").grep(/Version/)[0].strip
+print "Using GEMMA ",gemma_version_hdr,"\n"
+gemma_version = gemma_version_hdr.split(/[,\s]+/)[1]

@@ -34,6 +34,11 @@ Unpack it and run the tool as
 
 ## Usage
 
+gemma-k-handler picks up GEMMA from the PATH. To override that behaviour
+use the GEMMA_COMMAND environment variable, e.g.
+
+    env GEMMA_COMMAND=~/opt/gemma/bin/gemma ./bin/gemma-K-handler --help
+
 ## Copyright
 
 Copyright (c) 2017 Pjotr Prins. See LICENSE.txt for further details.
