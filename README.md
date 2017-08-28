@@ -15,7 +15,9 @@ matrix (K) with the option of full leave-one-chromosome-out genome
 scans (LOCO).
 
 gemma-k-handler requires a recent version of GEMMA and essentially
-does a pass-through of all standard GEMMA invocation switches.
+does a pass-through of all standard GEMMA invocation switches. On
+return gemma-k-handler can return a JSON object (--json) which is
+useful for web-services.
 
 Note that this a work in progress (WIP). What is described below
 should work.

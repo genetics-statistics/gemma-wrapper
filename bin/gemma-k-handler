@@ -14,6 +14,8 @@ $: << File.join(basepath,'lib')
 VERSION_FILENAME=File.join(basepath,'VERSION')
 version = File.new(VERSION_FILENAME).read.chomp
 
+# ---- GEMMA path
+
 gemma_command = ENV['GEMMA_COMMAND']
 
 # Look for gemma
@@ -47,8 +49,13 @@ opts = OptionParser.new do |o|
   o.on('--') do
     o.terminate()
   end
+
   o.on('--cache-dir path',String, 'Use a cache directory') do |path|
     options[:cache_dir] = path
+  end
+
+  o.on('--json', 'Create output file in JSON format') do |b|
+    options[:json] = b
   end
 
   o.on("--force", "Force computation") do |q|
@@ -75,9 +82,39 @@ end
 
 opts.parse!(ARGV)
 
+# ---- Output handlers
+OUTPUT = (options[:json] ? $stderr : $stdout )
+
+record = { warnings: [] }
+
+require 'json'
+
+json_out = lambda do
+  print record.to_json if options[:json]
+end
+
+error = lambda do |*msg|
+  if options[:json]
+    record[:error] = *msg.join(" ")
+    record[:errno] = 1
+    json_out.call
+  end
+  raise *msg
+end
+debug = lambda do |*msg|
+  OUTPUT.print "DEBUG: ",*msg,"\n" if options[:debug]
+end
+warning = lambda do |*msg|
+  record.warnings.push *msg.join(" ")
+  OUTPUT.print "WARNING: ",*msg,"\n"
+end
+info = lambda do |*msg|
+  OUTPUT.print *msg,"\n" if !options[:quiet]
+end
+
 GEMMA_K_VERSION=version
 GEMMA_K_BANNER = "gemma-k-handler #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
-$stderr.print GEMMA_K_BANNER if !options[:quiet]
+info.call GEMMA_K_BANNER
 
 if options[:show_help]
   print opts
@@ -86,22 +123,22 @@ if options[:show_help]
 end
 
 if RUBY_VERSION =~ /^1/
-  $stderr.print "WARNING: runs on Ruby 2.x only\n"
+  warning "runs on Ruby 2.x only\n"
 end
 
-# Compute HASH on inputs
+# ---- Compute HASH on inputs
 hashme = []
 geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g switch" if geno_idx == nil
 hashme = gemma_args
 
 require 'digest/sha1'
-$stderr.print "Hashing on ",hashme,"\n" if options[:debug]
+debug.call "Hashing on ",hashme,"\n"
 hashes = []
 hashme.each do | item |
   if File.exist?(item)
     hashes << Digest::SHA1.hexdigest(File.read(item))
-    p [item,hashes.last] if options[:debug]
+    debug.call [item,hashes.last]
   else
     hashes << item
   end
@@ -113,34 +150,49 @@ options[:hash] = HASH
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
-raise "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
+error.call "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
 gemma_args << '-o'
 gemma_args << HASH
-raise "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
+error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
 gemma_args << '-outdir'
 gemma_args << options[:cache_dir]
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
 gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
-print "Using GEMMA ",gemma_version_header,"\n"
+info.call "Using GEMMA ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
 options[:gemma_args] = gemma_args
 
-$stderr.print "Options: ",options,"\n" if !options[:quiet]
+debug.call "Options: ",options,"\n" if !options[:quiet]
 
-if !options[:force] and gemma_args.include? '-gk'
+if gemma_args.include? '-gk'
   # kinship computation
-  check_fn = options[:cache_dir]+'/'+HASH+'.log.txt'
-  if File.exist? check_fn
-    if File.read(check_fn).include? "time on calculating relatedness matrix"
-      print "#{check_fn} gemma-k-handler CACHE HIT!\n"
-      exit 0
+  logfn  = options[:cache_dir]+'/'+HASH+'.log.txt'
+  kfilen = options[:cache_dir]+'/'+HASH+'.log.txt'
+  record[:log] = logfn
+  record[:K] = kfilen
+  if !options[:force]
+    check_fn = logfn
+    record[:log] = check_fn
+    if File.exist? check_fn
+      if File.read(check_fn).include? "time on calculating relatedness matrix"
+        info.call "#{check_fn} gemma-k-handler CACHE HIT!\n"
+        json_out.call
+        exit 0
+      end
     end
   end
 end
-# Now execute GEMMA
-print `#{GEMMA_COMMAND} #{gemma_args.join(' ')}`
+# Execute GEMMA
+CMD="#{GEMMA_COMMAND} #{gemma_args.join(' ')}"
+debug.call CMD
+output = IO.popen(CMD)
+buf = output.read
+info.call buf
+record[:errno] = $?.exitstatus
+json_out.call
+exit record[:errno]
