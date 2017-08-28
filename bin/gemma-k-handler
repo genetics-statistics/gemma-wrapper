@@ -41,12 +41,9 @@ end
 options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, gemma_args: gemma_args, cache_dir: Dir.tmpdir() }
 
 opts = OptionParser.new do |o|
-  o.banner = "Usage: #{File.basename($0)} [options] [gemma-options]"
+  o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
 
-  # o.on('-i','--ignore-missing', 'Ignore missing data') do
-  #   options[:ignore_missing] = true
-  # end
-  o.on('--') do
+  o.on('--','Anything after gets passed to GEMMA') do
     o.terminate()
   end
 
