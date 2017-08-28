@@ -43,8 +43,8 @@ options = { show_help: false, source: 'https://github.com/genetics-statistics/ge
 opts = OptionParser.new do |o|
   o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
 
-  o.on('--','Anything after gets passed to GEMMA') do
-    o.terminate()
+  o.on('--loco x,y,1,2,3...', Array, 'Run full LOCO') do |lst|
+    options[:loco] = lst
   end
 
   o.on('--cache-dir path',String, 'Use a cache directory') do |path|
@@ -71,6 +71,10 @@ opts = OptionParser.new do |o|
     options[:debug] = true
   end
 
+  o.on('--','Anything after gets passed to GEMMA') do
+    o.terminate()
+  end
+
   o.separator ""
   o.on_tail('-h', '--help', 'display this help and exit') do
     options[:show_help] = true
@@ -82,7 +86,7 @@ opts.parse!(ARGV)
 # ---- Output handlers
 OUTPUT = (options[:json] ? $stderr : $stdout )
 
-record = { warnings: [], errno: 0 }
+record = { warnings: [], errno: 0, debug: [] }
 
 require 'json'
 
@@ -99,13 +103,17 @@ error = lambda do |*msg|
   raise *msg
 end
 debug = lambda do |*msg|
-  OUTPUT.print "DEBUG: ",*msg,"\n" if options[:debug]
+  if options[:debug]
+    record[:debug].push *msg.join("") if options[:json]
+    OUTPUT.print "DEBUG: ",*msg,"\n"
+  end
 end
 warning = lambda do |*msg|
-  record.warnings.push *msg.join(" ")
+  record[:warnings].push *msg.join("")
   OUTPUT.print "WARNING: ",*msg,"\n"
 end
 info = lambda do |*msg|
+  record[:debug].push *msg.join("") if options[:json] and options[:debug]
   OUTPUT.print *msg,"\n" if !options[:quiet]
 end
 
@@ -113,7 +121,7 @@ GEMMA_K_VERSION=version
 GEMMA_K_BANNER = "gemma-k-handler #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
 info.call GEMMA_K_BANNER
 
-if options[:show_help]
+if options[:show_help] or gemma_args == nil
   print opts
   print USAGE
   exit 1
@@ -164,13 +172,9 @@ options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
 options[:gemma_args] = gemma_args
 
-CMD="#{GEMMA_COMMAND} #{gemma_args.join(' ')}"
-record[:gemma_command] = CMD
-
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-is_kinship = gemma_args.include? '-gk'
-if is_kinship
+if gemma_args.include? '-gk'
   # kinship computation
   record[:type] = "K"
   logfn  = options[:cache_dir]+'/'+HASH+'.log.txt'
@@ -195,15 +199,26 @@ if is_kinship
   end
 end
 # Execute GEMMA
+CMD="#{GEMMA_COMMAND} #{gemma_args.join(' ')}"
+record[:gemma_command] = CMD
 debug.call CMD
-if options[:json]
-  # capture output
-  output = IO.popen(CMD)
-  buf = output.read
-  info.call buf
-else
-  system(CMD)
-end
-record[:errno] = $?.exitstatus
+errno =
+  if options[:json]
+    # capture output
+    err = 0
+    IO.popen(CMD) do |io|
+      while s = io.gets
+        $stderr.print s
+      end
+      io.close
+      err = $?.to_i
+    end
+    err
+  else
+    system(CMD)
+    $?.exitstatus
+  end
+debug.call "Gemma exit ",errno
+record[:errno] = errno
 json_out.call
-exit record[:errno]
+exit errno

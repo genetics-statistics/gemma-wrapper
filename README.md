@@ -52,13 +52,14 @@ prints the GEMMA help
 
 ## Caching of K
 
-To compute K
+To compute K run the following command from the source directory (so
+the data files are found):
 
-    gemma-k-handler -- \
-    -g test/data/input/BXD_geno.txt.gz \
-    -p test/data/input/BXD_pheno.txt \
-    -gk \
-    -debug
+    ./bin/gemma-k-handler -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -gk \
+        -debug
 
 Run it twice to see
 
@@ -70,11 +71,11 @@ passed in (here the genotype and phenotype files).
 
 You can also get JSON output on STDOUT by providing the --json switch
 
-    gemma-k-handler --json -- \
-    -g test/data/input/BXD_geno.txt.gz \
-    -p test/data/input/BXD_pheno.txt \
-    -gk \
-    -debug
+    ./bin/gemma-k-handler --json -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -gk \
+        -debug
 
 prints out something that can be parsed with a calling program
 
@@ -86,25 +87,37 @@ Note that GEMMA's -o (output) and --outdir switches should not be
 used. gemma-k-handler stores the cached matrices in TMPDIR by
 default. If you want something else provide a --cache-dir, e.g.
 
-    gemma-k-handler --cache-dir ~/.gemma-cache -- \
-    -g test/data/input/BXD_geno.txt.gz \
-    -p test/data/input/BXD_pheno.txt \
-    -gk \
-    -debug
+    ./bin/gemma-k-handler --cache-dir ~/.gemma-cache -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -gk \
+        -debug
 
-will write the new matrix in ~/.gemma-cache.
+will store K in ~/.gemma-cache.
 
 ### LOCO
 
-(not yet implemented)
-
 Recent versions of GEMMA have LOCO support for a single chromosome using
-the -loco switch. To loop all chromosomes gemma-k-handler do
+the -loco switch. To loop all chromosomes first create all K's with
 
-    gemma-k-handler --loco-all -- \
-        -g ../example/BXD_geno.txt.gz \
+    ./bin/gemma-k-handler --json \
+        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,Y -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
         -gk \
         -debug
+
+and next run the LMM's
+
+    ./bin/gemma-k-handler --json --debug --loco -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -c test/data/input/BXD_covariates2.txt \
+        -a test/data/input/BXD_snps.txt \
+        -lmm 2 -maf 0.1 \
+        -debug
+
+Again output switches are not allowed (-o, -outdir)
 
 ## Copyright
 
