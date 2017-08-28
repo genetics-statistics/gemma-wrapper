@@ -68,6 +68,20 @@ gemma-k-handler computes the unique HASH value over the command
 line switches passed into GEMMA as well as the contents of the files
 passed in (here the genotype and phenotype files).
 
+You can also get JSON output on STDOUT by providing the --json switch
+
+    gemma-k-handler --json -- \
+    -g test/data/input/BXD_geno.txt.gz \
+    -p test/data/input/BXD_pheno.txt \
+    -gk \
+    -debug
+
+prints out something that can be parsed with a calling program
+
+```json
+{"warnings":[],"errno":0,"gemma_command":"../gemma/bin/gemma -g test/data/input/BXD_geno.txt.gz -p test/data/input/BXD_pheno.txt -gk -debug -o 18ce786ab92064a7ee38a7422e7838abf91f5eb0 -outdir /tmp","type":"K","log":"/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.log.txt","K":"/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.cXX.txt"}
+```
+
 Note that GEMMA's -o (output) and --outdir switches should not be
 used. gemma-k-handler stores the cached matrices in TMPDIR by
 default. If you want something else provide a --cache-dir, e.g.
