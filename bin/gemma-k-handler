@@ -161,6 +161,7 @@ gemma_args << HASH
 error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
 gemma_args << '-outdir'
 gemma_args << options[:cache_dir]
+GEMMA_ARGS = gemma_args
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
@@ -170,15 +171,14 @@ gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
-options[:gemma_args] = gemma_args
+options[:gemma_args] = GEMMA_ARGS
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-if gemma_args.include? '-gk'
-  # kinship computation
+compute_K = lambda do | chr |
   record[:type] = "K"
   logfn  = options[:cache_dir]+'/'+HASH+'.log.txt'
-  kfilen = case (gemma_args[gemma_args.index('-gk')+1]).to_i
+  kfilen = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
            when 0,1 then options[:cache_dir]+'/'+HASH+'.cXX.txt'
            when 2 then options[:cache_dir]+'/'+HASH+'.sXX.txt'
            else error.call "Unknown kinship type"
@@ -198,27 +198,51 @@ if gemma_args.include? '-gk'
     end
   end
 end
-# Execute GEMMA
-CMD="#{GEMMA_COMMAND} #{gemma_args.join(' ')}"
-record[:gemma_command] = CMD
-debug.call CMD
-errno =
-  if options[:json]
-    # capture output
-    err = 0
-    IO.popen(CMD) do |io|
-      while s = io.gets
-        $stderr.print s
+
+invoke_gemma = lambda do |extra_args|
+  CMD="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  record[:gemma_command] = CMD
+  debug.call CMD
+  errno =
+    if options[:json]
+      # capture output
+      err = 0
+      IO.popen(CMD) do |io|
+        while s = io.gets
+          $stderr.print s
+        end
+        io.close
+        err = $?.to_i
       end
-      io.close
-      err = $?.to_i
+      err
+    else
+      system(CMD)
+      $?.exitstatus
     end
-    err
-  else
-    system(CMD)
-    $?.exitstatus
+  if errno
+    debug.call "Gemma exit ",errno
+    record[:errno] = errno
+    json_out.call
+    exit errno
   end
-debug.call "Gemma exit ",errno
-record[:errno] = errno
+end
+
+LOCO = options[:loco]
+if GEMMA_ARGS.include? '-gk'
+  # compute K
+  if LOCO != nil
+    LOCO.each do |chr|
+      info.call "Running LOCO ",chr
+      # logfn,kfilen,cache_hit = kinship.call(chr)
+    end
+  else
+    # logfn,kfilen,cache_hit = kinship.call # no LOCO
+    x=0
+  end
+else
+  # GWAS
+  x=1
+end
+
 json_out.call
-exit errno
+exit 0
