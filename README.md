@@ -9,14 +9,14 @@ GEMMA is a software toolkit for fast application of linear mixed
 models (LMMs) and related models to genome-wide association studies
 (GWAS) and other large-scale data sets.
 
-This repository contains gemma-k-handler, essentially a wrapper of
+This repository contains gemma-wrapper, essentially a wrapper of
 GEMMA that provides support for caching the kinship or relatedness
 matrix (K) and caching LM and LMM computations with the option of full
 leave-one-chromosome-out genome scans (LOCO).
 
-gemma-k-handler requires a recent version of GEMMA and essentially
+gemma-wrapper requires a recent version of GEMMA and essentially
 does a pass-through of all standard GEMMA invocation switches. On
-return gemma-k-handler can return a JSON object (--json) which is
+return gemma-wrapper can return a JSON object (--json) which is
 useful for web-services.
 
 Note that this a work in progress (WIP). What is described below
@@ -30,23 +30,23 @@ Prerequisites are
 * Standard [Ruby >2.0 ](https://www.ruby-lang.org/en/) which comes on
   almost all Linux systems
 
-Fetch a [release](https://github.com/genetics-statistics/gemma-K-handler/releases) of
-[gemma-k-handler](https://github.com/genetics-statistics/gemma-K-handler)
+Fetch a [release](https://github.com/genetics-statistics/gemma-wrapper/releases) of
+[gemma-wrapper](https://github.com/genetics-statistics/gemma-wrapper)
 
 Unpack it and run the tool as
 
-    ./bin/gemma-k-handler --help
+    ./bin/gemma-wrapper --help
 
 ## Usage
 
-gemma-k-handler picks up GEMMA from the PATH. To override that behaviour
+gemma-wrapper picks up GEMMA from the PATH. To override that behaviour
 use the GEMMA_COMMAND environment variable, e.g.
 
-    env GEMMA_COMMAND=~/opt/gemma/bin/gemma ./bin/gemma-K-handler --help
+    env GEMMA_COMMAND=~/opt/gemma/bin/gemma ./bin/gemma-wrapper --help
 
 to pass switches to GEMMA put them after '--' e.g.
 
-    gemma-k-handler -v -- -h
+    gemma-wrapper -v -- -h
 
 prints the GEMMA help
 
@@ -55,7 +55,7 @@ prints the GEMMA help
 To compute K run the following command from the source directory (so
 the data files are found):
 
-    ./bin/gemma-k-handler -- \
+    ./bin/gemma-wrapper -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -63,15 +63,15 @@ the data files are found):
 
 Run it twice to see
 
-    /tmp/3079151e14b219c3b243b673d88001c1675168b4.log.txt gemma-k-handler CACHE HIT!
+    /tmp/3079151e14b219c3b243b673d88001c1675168b4.log.txt gemma-wrapper CACHE HIT!
 
-gemma-k-handler computes the unique HASH value over the command
+gemma-wrapper computes the unique HASH value over the command
 line switches passed into GEMMA as well as the contents of the files
 passed in (here the genotype and phenotype files).
 
 You can also get JSON output on STDOUT by providing the --json switch
 
-    ./bin/gemma-k-handler --json -- \
+    ./bin/gemma-wrapper --json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -84,10 +84,10 @@ prints out something that can be parsed with a calling program
 ```
 
 Note that GEMMA's -o (output) and --outdir switches should not be
-used. gemma-k-handler stores the cached matrices in TMPDIR by
+used. gemma-wrapper stores the cached matrices in TMPDIR by
 default. If you want something else provide a --cache-dir, e.g.
 
-    ./bin/gemma-k-handler --cache-dir ~/.gemma-cache -- \
+    ./bin/gemma-wrapper --cache-dir ~/.gemma-cache -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -102,7 +102,7 @@ using the -loco switch (for supported formats check
 https://github.com/genetics-statistics/GEMMA/issues/46). To loop all
 chromosomes first create all K's with
 
-    ./bin/gemma-k-handler --json \
+    ./bin/gemma-wrapper --json \
         --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,Y -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -113,7 +113,7 @@ chromosomes first create all K's with
 and next run the LMM's using the K's captured in K.json using the --input
 switch
 
-    ./bin/gemma-k-handler --json --loco --input K.json -- \
+    ./bin/gemma-wrapper --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -127,7 +127,8 @@ GWA.json contains the file names of every chromosome
 {"warnings":[],"errno":0,"debug":[],"type":"GWA","files":[["1","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.1.assoc.txt.log.txt","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.1.assoc.txt.assoc.txt"],["2","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.2.assoc.txt.log.txt","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.2.assoc.txt.assoc.txt"]...
 ```
 
-Again output switches are not allowed (-o, -outdir)
+The -k switch is injected automatically. Again output switches are not
+allowed (-o, -outdir)
 
 ## Copyright
 

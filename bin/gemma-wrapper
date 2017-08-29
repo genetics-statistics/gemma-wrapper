@@ -1,6 +1,6 @@
 #! /usr/bin/env ruby
 #
-# gemma-k-handler
+# gemma-wrapper
 # Author:: Pjotr Prins
 # License:: GPL3
 #
@@ -38,7 +38,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir() }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir() }
 
 opts = OptionParser.new do |o|
   o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -123,7 +123,7 @@ info = lambda do |*msg|
 end
 
 GEMMA_K_VERSION=version
-GEMMA_K_BANNER = "gemma-k-handler #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
+GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
 info.call GEMMA_K_BANNER
 
 if options[:show_help] or gemma_args == nil
