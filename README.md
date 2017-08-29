@@ -30,7 +30,35 @@ Prerequisites are
 * Standard [Ruby >2.0 ](https://www.ruby-lang.org/en/) which comes on
   almost all Linux systems
 
-Fetch a [release](https://github.com/genetics-statistics/gemma-wrapper/releases) of
+gemma-wrapper comes as a Ruby [gem](https://rubygems.org/gems/bio-gemma-wrapper) and
+can be installed with
+
+    gem install bio-gemma-wrapper
+
+Invoke the tool with
+
+    gemma-wrapper --help
+
+and it will render
+
+```
+Usage: gemma-wrapper [options] -- [gemma-options]
+        --loco [x,y,1,2,3...]        Run full LOCO
+        --input filen                JSON input variables (used for LOCO)
+        --cache-dir path             Use a cache directory
+        --json                       Create output file in JSON format
+        --force                      Force computation
+        --q, --quiet                 Run quietly
+    -v, --verbose                    Run verbosely
+        --debug                      Show debug messages and keep intermediate output
+        --                           Anything after gets passed to GEMMA
+
+    -h, --help                       display this help and exit
+```
+
+Alternatively, fetch a
+[release](https://github.com/genetics-statistics/gemma-wrapper/releases)
+of
 [gemma-wrapper](https://github.com/genetics-statistics/gemma-wrapper)
 
 Unpack it and run the tool as
@@ -55,7 +83,7 @@ prints the GEMMA help
 To compute K run the following command from the source directory (so
 the data files are found):
 
-    ./bin/gemma-wrapper -- \
+    gemma-wrapper -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -71,7 +99,7 @@ passed in (here the genotype and phenotype files).
 
 You can also get JSON output on STDOUT by providing the --json switch
 
-    ./bin/gemma-wrapper --json -- \
+    gemma-wrapper --json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -87,7 +115,7 @@ Note that GEMMA's -o (output) and --outdir switches should not be
 used. gemma-wrapper stores the cached matrices in TMPDIR by
 default. If you want something else provide a --cache-dir, e.g.
 
-    ./bin/gemma-wrapper --cache-dir ~/.gemma-cache -- \
+    gemma-wrapper --cache-dir ~/.gemma-cache -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
@@ -102,7 +130,7 @@ using the -loco switch (for supported formats check
 https://github.com/genetics-statistics/GEMMA/issues/46). To loop all
 chromosomes first create all K's with
 
-    ./bin/gemma-wrapper --json \
+    gemma-wrapper --json \
         --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,Y -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -113,7 +141,7 @@ chromosomes first create all K's with
 and next run the LMM's using the K's captured in K.json using the --input
 switch
 
-    ./bin/gemma-wrapper --json --loco --input K.json -- \
+    gemma-wrapper --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -132,4 +160,4 @@ allowed (-o, -outdir)
 
 ## Copyright
 
-Copyright (c) 2017 Pjotr Prins. See LICENSE.txt for further details.
+Copyright (c) 2017 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
