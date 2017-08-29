@@ -206,44 +206,54 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
   end
 end
 
-kinship = lambda do | chr = nil |
-  cache_hit = false
-  record[:type] = "K"
-  inject = (chr==nil ? "" : ".#{chr}" )
+# returns datafn, logfn, cache_hit
+cache = lambda do | chr, ext |
+  inject = (chr==nil ? "" : ".#{chr}" )+ext
   hashi = HASH+inject
-  logfn  = options[:cache_dir]+'/'+hashi+".log.txt"
-  kfilen = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
-           when 0,1 then options[:cache_dir]+'/'+hashi+'.cXX.txt'
-           when 2 then options[:cache_dir]+'/'+hashi+'.sXX.txt'
-           else error.call "Unknown kinship type"
-           end
+  prefix = options[:cache_dir]+'/'+hashi
+  logfn  = prefix+".log.txt"
+  datafn = prefix+ext
   record[:files] ||= []
-  record[:files].push [chr,logfn,kfilen]
+  record[:files].push [chr,logfn,datafn]
   if !options[:force]
-    if File.exist? logfn
-      if File.read(logfn).include? "time on calculating relatedness matrix"
+    if File.exist? logfn and File.exist? datafn
+      if File.read(logfn).include? "total computation time"
         record[:cache_hit] = true
-        info.call "#{logfn} gemma-k-handler CACHE HIT!\n"
-        cache_hit = true
+        info.call "#{logfn} CACHE HIT!\n"
+        return hashi, true
       end
     end
   end
-  if chr != nil
-    invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
-  else
-    invoke_gemma.call [ '-o', HASH ], cache_hit
+  return hashi,false
+end
+
+kinship = lambda do | chr = nil |
+  record[:type] = "K"
+  ext = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
+        when 0,1 then '.cXX.txt'
+        when 2 then '.sXX.txt'
+        else error.call "Unknown kinship type"
+        end
+  hashi, cache_hit = cache.call chr,ext
+  if not cache_hit
+    if chr != nil
+      invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
+    else
+      invoke_gemma.call [ '-o', HASH ], cache_hit
+    end
   end
 end
 
 gwas = lambda do | chr, kfn |
-  error.call "Do not use the GEMMA -k switch!" if GEMMA_ARGS.include? '-k'
   record[:type] = "GWA"
-  inject = (chr==nil ? "" : ".#{chr}" )
-  hashi = HASH+inject
-  if chr != nil
-    invoke_gemma.call [ '-loco', chr, '-k', kfn, '-o', hashi ]
-  else
-    error.call "Not supported"
+  error.call "Do not use the GEMMA -k switch!" if GEMMA_ARGS.include? '-k'
+  hashi, cache_hit = cache.call chr,".assoc.txt"
+  if not cache_hit
+    if chr != nil
+      invoke_gemma.call [ '-loco', chr, '-k', kfn, '-o', hashi ]
+    else
+      error.call "Not supported"
+    end
   end
 end
 

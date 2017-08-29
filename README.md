@@ -11,8 +11,8 @@ models (LMMs) and related models to genome-wide association studies
 
 This repository contains gemma-k-handler, essentially a wrapper of
 GEMMA that provides support for caching the kinship or relatedness
-matrix (K) with the option of full leave-one-chromosome-out genome
-scans (LOCO).
+matrix (K) and caching LM and LMM computations with the option of full
+leave-one-chromosome-out genome scans (LOCO).
 
 gemma-k-handler requires a recent version of GEMMA and essentially
 does a pass-through of all standard GEMMA invocation switches. On
@@ -119,7 +119,13 @@ switch
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
         -lmm 2 -maf 0.1 \
-        -debug
+        -debug > GWA.json
+
+GWA.json contains the file names of every chromosome
+
+```json
+{"warnings":[],"errno":0,"debug":[],"type":"GWA","files":[["1","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.1.assoc.txt.log.txt","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.1.assoc.txt.assoc.txt"],["2","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.2.assoc.txt.log.txt","/tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.2.assoc.txt.assoc.txt"]...
+```
 
 Again output switches are not allowed (-o, -outdir)
 
