@@ -156,8 +156,6 @@ options[:hash] = HASH
 FileUtils::mkdir_p options[:cache_dir]
 
 error.call "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
-gemma_args << '-o'
-gemma_args << HASH
 error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
 gemma_args << '-outdir'
 gemma_args << options[:cache_dir]
@@ -175,31 +173,7 @@ options[:gemma_args] = GEMMA_ARGS
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-compute_K = lambda do | chr |
-  record[:type] = "K"
-  logfn  = options[:cache_dir]+'/'+HASH+'.log.txt'
-  kfilen = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
-           when 0,1 then options[:cache_dir]+'/'+HASH+'.cXX.txt'
-           when 2 then options[:cache_dir]+'/'+HASH+'.sXX.txt'
-           else error.call "Unknown kinship type"
-           end
-  record[:log] = logfn
-  record[:K] = kfilen
-  if !options[:force]
-    check_fn = logfn
-    record[:log] = check_fn
-    if File.exist? check_fn
-      if File.read(check_fn).include? "time on calculating relatedness matrix"
-        record[:cache_hit] = true
-        info.call "#{check_fn} gemma-k-handler CACHE HIT!\n"
-        json_out.call
-        exit 0
-      end
-    end
-  end
-end
-
-invoke_gemma = lambda do |extra_args|
+invoke_gemma = lambda do |extra_args = []|
   CMD="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
   record[:gemma_command] = CMD
   debug.call CMD
@@ -219,25 +193,56 @@ invoke_gemma = lambda do |extra_args|
       system(CMD)
       $?.exitstatus
     end
-  if errno
+  if errno != 0
     debug.call "Gemma exit ",errno
     record[:errno] = errno
     json_out.call
-    exit errno
+    raise "exit on GEMMA error #{errno}"
   end
 end
+
+kinship = lambda do | chr = nil |
+  record[:type] = "K"
+  inject = (chr==nil ? "" : ".#{chr}" )
+  hashi = HASH+inject
+  logfn  = options[:cache_dir]+'/'+hashi+".log.txt"
+  kfilen = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
+           when 0,1 then options[:cache_dir]+'/'+hashi+'.cXX.txt'
+           when 2 then options[:cache_dir]+'/'+hashi+'.sXX.txt'
+           else error.call "Unknown kinship type"
+           end
+  record[:log] ||= {}
+  record[:log][chr] = logfn
+  record[:K] ||= {}
+  record[:K][chr] = kfilen
+  if !options[:force]
+    if File.exist? logfn
+      if File.read(logfn).include? "time on calculating relatedness matrix"
+        record[:cache_hit] = true
+        info.call "#{logfn} gemma-k-handler CACHE HIT!\n"
+        return # skip running GEMMA
+      end
+    end
+  end
+  if chr != nil
+    invoke_gemma.call [ '-loco', chr, '-o', hashi ]
+  else
+    invoke_gemma.call [ '-o', HASH ]
+  end
+end
+
 
 LOCO = options[:loco]
 if GEMMA_ARGS.include? '-gk'
   # compute K
+  info.call LOCO
   if LOCO != nil
     LOCO.each do |chr|
-      info.call "Running LOCO ",chr
-      # logfn,kfilen,cache_hit = kinship.call(chr)
+      info.call "LOCO for ",chr
+      kinship.call(chr)
     end
   else
-    # logfn,kfilen,cache_hit = kinship.call # no LOCO
-    x=0
+    kinship.call # no LOCO
   end
 else
   # GWAS
