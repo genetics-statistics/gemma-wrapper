@@ -110,9 +110,10 @@ chromosomes first create all K's with
         -gk \
         -debug > K.json
 
-and next run the LMM's using the K's listed in K.json
+and next run the LMM's using the K's captured in K.json using the --input
+switch
 
-    ./bin/gemma-k-handler --json --debug --loco -- \
+    ./bin/gemma-k-handler --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \

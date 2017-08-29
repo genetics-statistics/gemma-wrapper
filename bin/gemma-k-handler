@@ -38,13 +38,18 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, gemma_args: gemma_args, cache_dir: Dir.tmpdir() }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-K-handler', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir() }
 
 opts = OptionParser.new do |o|
   o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
 
-  o.on('--loco x,y,1,2,3...', Array, 'Run full LOCO') do |lst|
+  o.on('--loco [x,y,1,2,3...]', Array, 'Run full LOCO') do |lst|
     options[:loco] = lst
+  end
+
+  o.on('--input filen',String, 'JSON input variables (used for LOCO)') do |filen|
+    options[:input] = filen
+    raise "JSON input file #{filen} does not exist" if !File.exist?(filen)
   end
 
   o.on('--cache-dir path',String, 'Use a cache directory') do |path|
@@ -169,20 +174,19 @@ gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
-options[:gemma_args] = GEMMA_ARGS
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-invoke_gemma = lambda do |extra_args, cache_hit|
-  CMD="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
-  record[:gemma_command] = CMD
+invoke_gemma = lambda do |extra_args, cache_hit = false|
+  cmd="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  record[:gemma_command] = cmd
   return if cache_hit
-  debug.call CMD
+  # debug.call cmd
   errno =
     if options[:json]
       # capture output
       err = 0
-      IO.popen(CMD) do |io|
+      IO.popen(cmd) do |io|
         while s = io.gets
           $stderr.print s
         end
@@ -191,7 +195,7 @@ invoke_gemma = lambda do |extra_args, cache_hit|
       end
       err
     else
-      system(CMD)
+      system(cmd)
       $?.exitstatus
     end
   if errno != 0
@@ -214,7 +218,7 @@ kinship = lambda do | chr = nil |
            else error.call "Unknown kinship type"
            end
   record[:files] ||= []
-  record[:files].push [logfn,kfilen]
+  record[:files].push [chr,logfn,kfilen]
   if !options[:force]
     if File.exist? logfn
       if File.read(logfn).include? "time on calculating relatedness matrix"
@@ -231,6 +235,17 @@ kinship = lambda do | chr = nil |
   end
 end
 
+gwas = lambda do | chr, kfn |
+  error.call "Do not use the GEMMA -k switch!" if GEMMA_ARGS.include? '-k'
+  record[:type] = "GWA"
+  inject = (chr==nil ? "" : ".#{chr}" )
+  hashi = HASH+inject
+  if chr != nil
+    invoke_gemma.call [ '-loco', chr, '-k', kfn, '-o', hashi ]
+  else
+    error.call "Not supported"
+  end
+end
 
 LOCO = options[:loco]
 if GEMMA_ARGS.include? '-gk'
@@ -246,7 +261,12 @@ if GEMMA_ARGS.include? '-gk'
   end
 else
   # GWAS
-  x=1
+  json_in = JSON.parse(File.read(options[:input]))
+  raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
+  k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
+  k_files.each do | chr, kfn |
+    gwas.call(chr,kfn)
+  end
 end
 
 json_out.call
