@@ -80,7 +80,7 @@ You can also get JSON output on STDOUT by providing the --json switch
 prints out something that can be parsed with a calling program
 
 ```json
-{"warnings":[],"errno":0,"gemma_command":"../gemma/bin/gemma -g test/data/input/BXD_geno.txt.gz -p test/data/input/BXD_pheno.txt -gk -debug -o 18ce786ab92064a7ee38a7422e7838abf91f5eb0 -outdir /tmp","type":"K","log":"/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.log.txt","K":"/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.cXX.txt"}
+{"warnings":[],"errno":0,"debug":[],"type":"K","files":[["/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.log.txt","/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.cXX.txt"]],"cache_hit":true,"gemma_command":"../gemma/bin/gemma -g test/data/input/BXD_geno.txt.gz -p test/data/input/BXD_pheno.txt -gk -debug -outdir /tmp -o 18ce786ab92064a7ee38a7422e7838abf91f5eb0"}
 ```
 
 Note that GEMMA's -o (output) and --outdir switches should not be
@@ -108,9 +108,9 @@ chromosomes first create all K's with
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
         -gk \
-        -debug
+        -debug > K.json
 
-and next run the LMM's
+and next run the LMM's using the K's listed in K.json
 
     ./bin/gemma-k-handler --json --debug --loco -- \
         -g test/data/input/BXD_geno.txt.gz \

@@ -173,9 +173,10 @@ options[:gemma_args] = GEMMA_ARGS
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-invoke_gemma = lambda do |extra_args = []|
+invoke_gemma = lambda do |extra_args, cache_hit|
   CMD="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
   record[:gemma_command] = CMD
+  return if cache_hit
   debug.call CMD
   errno =
     if options[:json]
@@ -202,6 +203,7 @@ invoke_gemma = lambda do |extra_args = []|
 end
 
 kinship = lambda do | chr = nil |
+  cache_hit = false
   record[:type] = "K"
   inject = (chr==nil ? "" : ".#{chr}" )
   hashi = HASH+inject
@@ -211,23 +213,21 @@ kinship = lambda do | chr = nil |
            when 2 then options[:cache_dir]+'/'+hashi+'.sXX.txt'
            else error.call "Unknown kinship type"
            end
-  record[:log] ||= {}
-  record[:log][chr] = logfn
-  record[:K] ||= {}
-  record[:K][chr] = kfilen
+  record[:files] ||= []
+  record[:files].push [logfn,kfilen]
   if !options[:force]
     if File.exist? logfn
       if File.read(logfn).include? "time on calculating relatedness matrix"
         record[:cache_hit] = true
         info.call "#{logfn} gemma-k-handler CACHE HIT!\n"
-        return # skip running GEMMA
+        cache_hit = true
       end
     end
   end
   if chr != nil
-    invoke_gemma.call [ '-loco', chr, '-o', hashi ]
+    invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
   else
-    invoke_gemma.call [ '-o', HASH ]
+    invoke_gemma.call [ '-o', HASH ], cache_hit
   end
 end
 
