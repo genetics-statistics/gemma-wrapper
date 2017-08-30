@@ -7,7 +7,7 @@
 # Copyright (C) 2017 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "GEMMA K handler"
-GEMMA_V_MAJOR = 92
+GEMMA_V_MAJOR = 97
 GEMMA_V_MINOR = 2
 
 basepath = File.dirname(File.dirname(__FILE__))
@@ -133,9 +133,9 @@ GEMMA_COMMAND=options[:gemma_command]
 gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
 info.call "Using GEMMA ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
-v_version,v_major, v_minor = gemma_version.split(".")
+v_version, v_major, v_minor = gemma_version.split(".")
 
-raise "GEMMA version is out of date. Update GEMMA!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and v_minor.to_i < GEMMA_V_MINOR)
+error.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor == nil or v_minor.to_i < GEMMA_V_MINOR))
 
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
