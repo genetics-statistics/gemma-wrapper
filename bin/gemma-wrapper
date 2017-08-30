@@ -7,6 +7,8 @@
 # Copyright (C) 2017 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "GEMMA K handler"
+GEMMA_V_MAJOR = 92
+GEMMA_V_MINOR = 2
 
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
@@ -126,6 +128,18 @@ GEMMA_K_VERSION=version
 GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
 info.call GEMMA_K_BANNER
 
+# Check gemma version
+GEMMA_COMMAND=options[:gemma_command]
+gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
+info.call "Using GEMMA ",gemma_version_header,"\n"
+gemma_version = gemma_version_header.split(/[,\s]+/)[1]
+v_version,v_major, v_minor = gemma_version.split(".")
+
+raise "GEMMA version is out of date. Update GEMMA!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and v_minor.to_i < GEMMA_V_MINOR)
+
+options[:gemma_version_header] = gemma_version_header
+options[:gemma_version] = gemma_version
+
 if options[:show_help] or gemma_args == nil
   print opts
   print USAGE
@@ -165,15 +179,6 @@ error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdi
 gemma_args << '-outdir'
 gemma_args << options[:cache_dir]
 GEMMA_ARGS = gemma_args
-
-# Check gemma version
-GEMMA_COMMAND=options[:gemma_command]
-gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
-info.call "Using GEMMA ",gemma_version_header,"\n"
-gemma_version = gemma_version_header.split(/[,\s]+/)[1]
-
-options[:gemma_version_header] = gemma_version_header
-options[:gemma_version] = gemma_version
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
