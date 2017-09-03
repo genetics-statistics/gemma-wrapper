@@ -16,6 +16,7 @@ task :test do
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
         -gk -debug > K.json"
+  fail "Test failed" if $? != 0
   # run again for cache hits
   ruby "bin/gemma-wrapper  --json \
         --loco 1,2,3,4 -- \
@@ -23,6 +24,7 @@ task :test do
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
         -gk -debug > K2.json"
+  fail "Test failed" if $? != 0
   ruby "bin/gemma-wrapper --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -30,6 +32,7 @@ task :test do
         -a test/data/input/BXD_snps.txt \
         -lmm 2 -maf 0.1 \
         -debug > GWA.json"
+  fail "Test failed" if $? != 0
   # run again
   ruby "bin/gemma-wrapper --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
@@ -38,7 +41,6 @@ task :test do
         -a test/data/input/BXD_snps.txt \
         -lmm 2 -maf 0.1 \
         -debug > GWA2.json"
-
 end
 
 require 'rdoc/task'
