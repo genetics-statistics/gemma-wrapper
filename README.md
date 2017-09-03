@@ -131,7 +131,7 @@ https://github.com/genetics-statistics/GEMMA/issues/46). To loop all
 chromosomes first create all K's with
 
     gemma-wrapper --json \
-        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X,Y -- \
+        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \

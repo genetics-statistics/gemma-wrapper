@@ -6,7 +6,35 @@
 #
 # Copyright (C) 2017 Pjotr Prins <pjotr.prins@thebird.nl>
 
-USAGE = "GEMMA K handler"
+USAGE = "GEMMA wrapper example:
+
+    Simple caching of K computation with
+
+      gemma-wrapper -- \\
+        -g test/data/input/BXD_geno.txt.gz \\
+        -p test/data/input/BXD_pheno.txt \\
+        -gk
+
+    LOCO K computation with caching and JSON output
+
+      gemma-wrapper --json \\
+        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \\
+        -g test/data/input/BXD_geno.txt.gz \\
+        -p test/data/input/BXD_pheno.txt \\
+        -a test/data/input/BXD_snps.txt \\
+        -gk -debug > K.json
+
+    LMM's using the K's captured in K.json using the --input switch
+
+      gemma-wrapper --json --loco --input K.json -- \\
+        -g test/data/input/BXD_geno.txt.gz \\
+        -p test/data/input/BXD_pheno.txt \\
+        -c test/data/input/BXD_covariates2.txt \\
+        -a test/data/input/BXD_snps.txt \\
+        -lmm 2 -maf 0.1 \\
+        -debug > GWA.json
+
+"
 GEMMA_V_MAJOR = 97
 GEMMA_V_MINOR = 2
 
