@@ -4,7 +4,7 @@
 # Author:: Pjotr Prins
 # License:: GPL3
 #
-# Copyright (C) 2017 Pjotr Prins <pjotr.prins@thebird.nl>
+# Copyright (C) 2017,2018 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "GEMMA wrapper example:
 
@@ -35,8 +35,9 @@ USAGE = "GEMMA wrapper example:
         -debug > GWA.json
 
 "
+# These are used for testing compatibility
 GEMMA_V_MAJOR = 97
-GEMMA_V_MINOR = 2
+GEMMA_V_MINOR = 0
 
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
@@ -153,17 +154,18 @@ info = lambda do |*msg|
 end
 
 GEMMA_K_VERSION=version
-GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017\n"
+GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017,2018\n"
 info.call GEMMA_K_BANNER
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
-gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/Version/)[0].strip
+gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/GEMMA|Version/)[0].strip
 info.call "Using GEMMA ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 v_version, v_major, v_minor = gemma_version.split(".")
+info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
 
-error.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor == nil or v_minor.to_i < GEMMA_V_MINOR))
+warning.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor != nil and v_minor.to_i < GEMMA_V_MINOR))
 
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
