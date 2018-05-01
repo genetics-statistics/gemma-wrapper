@@ -63,6 +63,7 @@ end
 require 'fileutils'
 require 'optparse'
 require 'tmpdir'
+require 'tempfile'
 
 split_at = ARGV.index('--')
 if split_at
@@ -76,6 +77,7 @@ opts = OptionParser.new do |o|
 
   o.on('--permutate n', Integer, 'Permutate by shuffling phenotypes') do |lst|
     options[:permutate] = lst
+    options[:force] = true
   end
 
   o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
@@ -199,7 +201,7 @@ hashme = []
 geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g switch" if geno_idx == nil
 hashme = gemma_args
-hashme << ['-p', options[:phenotypes]] if options[:phenotypes]
+hashme += ['-p', options[:phenotypes]] if options[:phenotypes]
 
 require 'digest/sha1'
 debug.call "Hashing on ",hashme,"\n"
@@ -333,14 +335,40 @@ else
   end
   # Permute
   if options[:permutate]
+    ps = []
     File.foreach(pfn).with_index do |line, line_num|
-      p line
+      ps << line
     end
-    exit 1
+    score_list = []
     debug.call(options[:permutate],"x permutations")
     (1..options[:permutate]).each do |i|
       $stderr.print "Iteration ",i,"\n"
+      # Create a shuffled phenotype file
+      file = File.open("phenotypes-#{i}","w")
+      tmp_pfn = file.path
+      p tmp_pfn
+      ps.shuffle.each do | l |
+        file.print(l)
+      end
+      file.close
+      k_files.each do | chr, kfn | # call a GWA for each chromosome
+        gwas.call(chr,kfn,tmp_pfn)
+      end
+      # p [:HEY,record[:files].last]
+      assocfn = record[:files].last[2]
+      debug.call("Reading ",assocfn)
+      score_min = 1000.0
+      File.foreach(assocfn).with_index do |assoc, assoc_line_num|
+        if assoc_line_num > 0
+          value = assoc.strip.split(/\t/).last.to_f
+          score_min = value if value < score_min
+        end
+      end
+      score_list << score_min
     end
+    ls = score_list.sort
+    p ls
+    p ls[(ls.size - ls.size*0.95).floor]
   end
 end
 
