@@ -74,6 +74,10 @@ options = { show_help: false, source: 'https://github.com/genetics-statistics/ge
 opts = OptionParser.new do |o|
   o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
 
+  o.on('--permutate n', Integer, 'Permutate by shuffling phenotypes') do |lst|
+    options[:permutate] = lst
+  end
+
   o.on('--loco [x,y,1,2,3...]', Array, 'Run full LOCO') do |lst|
     options[:loco] = lst
   end
@@ -91,7 +95,7 @@ opts = OptionParser.new do |o|
     options[:json] = b
   end
 
-  o.on("--force", "Force computation") do |q|
+  o.on("--force", "Force computation (override cache)") do |q|
     options[:force] = true
   end
 
@@ -244,7 +248,7 @@ end
 # returns datafn, logfn, cache_hit
 cache = lambda do | chr, ext |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
-  hashi = HASH+inject
+  hashi = (chr==nil ? HASH : HASH+inject)
   prefix = options[:cache_dir]+'/'+hashi
   logfn  = prefix+".log.txt"
   datafn = prefix+ext
@@ -262,6 +266,7 @@ cache = lambda do | chr, ext |
   return hashi,false
 end
 
+# ---- Compute K
 kinship = lambda do | chr = nil |
   record[:type] = "K"
   ext = case (GEMMA_ARGS[GEMMA_ARGS.index('-gk')+1]).to_i
@@ -279,9 +284,10 @@ kinship = lambda do | chr = nil |
   end
 end
 
+# ---- Run GWA
 gwas = lambda do | chr, kfn |
   record[:type] = "GWA"
-  error.call "Do not use the GEMMA -k switch!" if GEMMA_ARGS.include? '-k'
+  error.call "Do not use the GEMMA -k switch with gemma-wrapper!" if GEMMA_ARGS.include? '-k' # K is automatic
   hashi, cache_hit = cache.call chr,".assoc.txt"
   if not cache_hit
     if chr != nil
@@ -309,7 +315,7 @@ else
   json_in = JSON.parse(File.read(options[:input]))
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
   k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
-  k_files.each do | chr, kfn |
+  k_files.each do | chr, kfn | # call a GWA for each chromosome
     gwas.call(chr,kfn)
   end
 end
