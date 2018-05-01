@@ -199,6 +199,7 @@ hashme = []
 geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g switch" if geno_idx == nil
 hashme = gemma_args
+hashme << ['-p', options[:phenotypes]] if options[:phenotypes]
 
 require 'digest/sha1'
 debug.call "Hashing on ",hashme,"\n"
@@ -296,16 +297,15 @@ kinship = lambda do | chr = nil |
 end
 
 # ---- Run GWA
-gwas = lambda do | chr, kfn |
+gwas = lambda do | chr, kfn, pfn |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper!" if GEMMA_ARGS.include? '-k' # K is automatic
   hashi, cache_hit = cache.call chr,".assoc.txt"
   if not cache_hit
-    if chr != nil
-      invoke_gemma.call [ '-loco', chr, '-k', kfn, '-o', hashi ]
-    else
-      invoke_gemma.call [ '-k', kfn, '-o', hashi ]
-    end
+    args = [ '-k', kfn, '-o', hashi ]
+    args << [ '-loco', chr ] if chr != nil
+    args << [ '-p', pfn ] if pfn
+    invoke_gemma.call args
   end
 end
 
@@ -325,13 +325,22 @@ else
   # GWAS
   json_in = JSON.parse(File.read(options[:input]))
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
+
+  pfn = options[:phenotypes] # can be nil
   k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
   k_files.each do | chr, kfn | # call a GWA for each chromosome
-    gwas.call(chr,kfn)
+    gwas.call(chr,kfn,pfn)
   end
   # Permute
   if options[:permutate]
+    File.foreach(pfn).with_index do |line, line_num|
+      p line
+    end
+    exit 1
     debug.call(options[:permutate],"x permutations")
+    (1..options[:permutate]).each do |i|
+      $stderr.print "Iteration ",i,"\n"
+    end
   end
 end
 
