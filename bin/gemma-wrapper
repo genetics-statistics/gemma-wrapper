@@ -78,6 +78,11 @@ opts = OptionParser.new do |o|
     options[:permutate] = lst
   end
 
+  o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
+    options[:phenotypes] = phenotypes
+    raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
+  end
+
   o.on('--loco [x,y,1,2,3...]', Array, 'Run full LOCO') do |lst|
     options[:loco] = lst
   end
@@ -134,6 +139,7 @@ json_out = lambda do
   print record.to_json if options[:json]
 end
 
+# ---- Some error handlers
 error = lambda do |*msg|
   if options[:json]
     record[:error] = *msg.join(" ")
@@ -142,12 +148,14 @@ error = lambda do |*msg|
   end
   raise *msg
 end
+
 debug = lambda do |*msg|
   if options[:debug]
     record[:debug].push *msg.join("") if options[:json]
     OUTPUT.print "DEBUG: ",*msg,"\n"
   end
 end
+
 warning = lambda do |*msg|
   record[:warnings].push *msg.join("")
   OUTPUT.print "WARNING: ",*msg,"\n"
@@ -156,6 +164,8 @@ info = lambda do |*msg|
   record[:debug].push *msg.join("") if options[:json] and options[:debug]
   OUTPUT.print *msg,"\n" if !options[:quiet]
 end
+
+# ---- Start banner
 
 GEMMA_K_VERSION=version
 GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017,2018\n"
@@ -234,6 +244,7 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
       end
       err
     else
+      debug.call("Invoking ",cmd) if options[:debug]
       system(cmd)
       $?.exitstatus
     end
@@ -293,7 +304,7 @@ gwas = lambda do | chr, kfn |
     if chr != nil
       invoke_gemma.call [ '-loco', chr, '-k', kfn, '-o', hashi ]
     else
-      error.call "Not supported"
+      invoke_gemma.call [ '-k', kfn, '-o', hashi ]
     end
   end
 end
@@ -317,6 +328,10 @@ else
   k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
   k_files.each do | chr, kfn | # call a GWA for each chromosome
     gwas.call(chr,kfn)
+  end
+  # Permute
+  if options[:permutate]
+    debug.call(options[:permutate],"x permutations")
   end
 end
 
