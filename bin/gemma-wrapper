@@ -336,6 +336,7 @@ else
   # Permute
   if options[:permutate]
     ps = []
+    raise "You should supply --phenotype with gemma-wrapper --permutate" if not pfn
     File.foreach(pfn).with_index do |line, line_num|
       ps << line
     end
@@ -368,7 +369,9 @@ else
     end
     ls = score_list.sort
     p ls
-    p ls[(ls.size - ls.size*0.95).floor]
+    p ["95 percentile",ls[(ls.size - ls.size*0.95).floor]]
+    p ["67 percentile",ls[(ls.size - ls.size*0.95).floor]]
+    exit 0
   end
 end
 
