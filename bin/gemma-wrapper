@@ -369,8 +369,10 @@ else
     end
     ls = score_list.sort
     p ls
-    p ["95 percentile",ls[(ls.size - ls.size*0.95).floor]]
-    p ["67 percentile",ls[(ls.size - ls.size*0.95).floor]]
+    significant = ls[(ls.size - ls.size*0.95).floor]
+    suggestive = ls[(ls.size - ls.size*0.67).floor]
+    p ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
+    p ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
     exit 0
   end
 end
