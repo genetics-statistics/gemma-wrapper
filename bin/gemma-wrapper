@@ -61,6 +61,7 @@ if not gemma_command
   end
 end
 
+
 require 'fileutils'
 require 'optparse'
 require 'tmpdir'
@@ -176,6 +177,7 @@ info.call GEMMA_K_BANNER
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
+
 gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/GEMMA|Version/)[0].strip
 info.call "Using ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]

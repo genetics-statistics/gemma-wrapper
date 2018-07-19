@@ -1,8 +1,8 @@
 Gem::Specification.new do |s|
   s.name        = 'bio-gemma-wrapper'
   s.version     = File.read('VERSION')
-  s.summary     = "Cache GEMMA with LOCO"
-  s.description = "GEMMA wrapper caches K between runs with LOCO support"
+  s.summary     = "GEMMA with LOCO and permutations"
+  s.description = "GEMMA wrapper adds LOCO and permutation support. Also caches K between runs with LOCO support"
   s.authors     = ["Pjotr Prins"]
   s.email       = 'pjotr.public01@thebird.nl'
   s.files       = ["bin/gemma-wrapper",
