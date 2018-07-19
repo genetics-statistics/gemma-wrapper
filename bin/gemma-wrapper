@@ -6,7 +6,8 @@
 #
 # Copyright (C) 2017,2018 Pjotr Prins <pjotr.prins@thebird.nl>
 
-USAGE = "GEMMA wrapper example:
+USAGE = "
+GEMMA wrapper example:
 
     Simple caching of K computation with
 
@@ -73,7 +74,7 @@ end
 options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir() }
 
 opts = OptionParser.new do |o|
-  o.banner = "Usage: #{File.basename($0)} [options] -- [gemma-options]"
+  o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
 
   o.on('--permutate n', Integer, 'Permutate by shuffling phenotypes') do |lst|
     options[:permutate] = lst
@@ -176,7 +177,7 @@ info.call GEMMA_K_BANNER
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
 gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/GEMMA|Version/)[0].strip
-info.call "Using GEMMA ",gemma_version_header,"\n"
+info.call "Using ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 v_version, v_major, v_minor = gemma_version.split(".")
 info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
