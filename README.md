@@ -1,4 +1,4 @@
-[![Gem Version](https://badge.fury.io/rb/bio-gemma-wrapper.svg)](https://badge.fury.io/rb/bio-gemma-wrapper)
+[![gemma-wrapper gem version](https://badge.fury.io/rb/bio-gemma-wrapper.svg)](https://badge.fury.io/rb/bio-gemma-wrapper)
 
 # GEMMA wrapper caches K between runs with LOCO support
 
