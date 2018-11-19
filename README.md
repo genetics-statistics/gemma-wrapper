@@ -1,3 +1,5 @@
+[![Gem Version](https://badge.fury.io/rb/bio-gemma-wrapper.svg)](https://badge.fury.io/rb/bio-gemma-wrapper)
+
 # GEMMA wrapper caches K between runs with LOCO support
 
 ![Genetic associations identified in CFW mice using GEMMA (Parker et al,
@@ -39,10 +41,12 @@ Invoke the tool with
 
     gemma-wrapper --help
 
-and it will render
+and it will render something like
 
 ```
 Usage: gemma-wrapper [options] -- [gemma-options]
+        --permutate n                Permutate # times by shuffling phenotypes
+        --permute-phenotypes filen   Phenotypes to be shuffled in permutations
         --loco [x,y,1,2,3...]        Run full LOCO
         --input filen                JSON input variables (used for LOCO)
         --cache-dir path             Use a cache directory
@@ -95,7 +99,8 @@ Run it twice to see
 
 gemma-wrapper computes the unique HASH value over the command
 line switches passed into GEMMA as well as the contents of the files
-passed in (here the genotype and phenotype files).
+passed in (here the genotype and phenotype files - actually it ignores the phenotype with K because
+GEMMA always computes the same K).
 
 You can also get JSON output on STDOUT by providing the --json switch
 

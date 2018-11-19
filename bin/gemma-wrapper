@@ -35,9 +35,13 @@ GEMMA wrapper example:
         -lmm 2 -maf 0.1 \\
         -debug > GWA.json
 
+Gemma gets used from the path. You can override by setting
+
+      env GEMMA_COMMAND=path/bin/gemma gemma-wrapper ...
+
 "
 # These are used for testing compatibility
-GEMMA_V_MAJOR = 97
+GEMMA_V_MAJOR = 98
 GEMMA_V_MINOR = 0
 
 basepath = File.dirname(File.dirname(__FILE__))
@@ -77,13 +81,13 @@ options = { show_help: false, source: 'https://github.com/genetics-statistics/ge
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
 
-  o.on('--permutate n', Integer, 'Permutate by shuffling phenotypes') do |lst|
+  o.on('--permutate n', Integer, 'Permutate # times by shuffling phenotypes') do |lst|
     options[:permutate] = lst
     options[:force] = true
   end
 
-  o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
-    options[:phenotypes] = phenotypes
+  o.on('--permute-phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
+    options[:permute_phenotypes] = phenotypes
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
   end
 
@@ -199,12 +203,26 @@ if RUBY_VERSION =~ /^1/
   warning "runs on Ruby 2.x only\n"
 end
 
+DO_COMPUTE_KINSHIP = gemma_args.include?("-gk")
+DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
+
 # ---- Compute HASH on inputs
 hashme = []
 geno_idx = gemma_args.index '-g'
-raise "Expected GEMMA -g switch" if geno_idx == nil
-hashme = gemma_args
-hashme += ['-p', options[:phenotypes]] if options[:phenotypes]
+raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
+pheno_idx = gemma_args.index '-p'
+hashme =
+  if DO_COMPUTE_KINSHIP and pheno_idx != nil
+    p [pheno_idx,gemma_args[pheno_idx+2..-1]]
+    gemma_args[0..pheno_idx-1] + gemma_args[pheno_idx+2..-1]
+  else
+    gemma_args
+  end
+
+if DO_COMPUTE_GWA
+  raise "Did not expect GEMMA -p phenotype file switch" if pheno_idx
+  hashme += ['-p', options[:permute_phenotypes]] if options[:permute_phenotypes]
+end
 
 require 'digest/sha1'
 debug.call "Hashing on ",hashme,"\n"
@@ -304,7 +322,7 @@ end
 # ---- Run GWA
 gwas = lambda do | chr, kfn, pfn |
   record[:type] = "GWA"
-  error.call "Do not use the GEMMA -k switch with gemma-wrapper!" if GEMMA_ARGS.include? '-k' # K is automatic
+  error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   hashi, cache_hit = cache.call chr,".assoc.txt"
   if not cache_hit
     args = [ '-k', kfn, '-o', hashi ]
@@ -315,7 +333,8 @@ gwas = lambda do | chr, kfn, pfn |
 end
 
 LOCO = options[:loco]
-if GEMMA_ARGS.include? '-gk'
+# if GEMMA_ARGS.include? '-gk'
+if DO_COMPUTE_KINSHIP
   # compute K
   info.call LOCO
   if LOCO != nil
@@ -327,7 +346,7 @@ if GEMMA_ARGS.include? '-gk'
     kinship.call # no LOCO
   end
 else
-  # GWAS
+  # DO_COMPUTE_GWA
   json_in = JSON.parse(File.read(options[:input]))
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
