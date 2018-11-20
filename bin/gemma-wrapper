@@ -40,7 +40,7 @@ Gemma gets used from the path. You can override by setting
       env GEMMA_COMMAND=path/bin/gemma gemma-wrapper ...
 
 "
-# These are used for testing compatibility
+# These are used for testing compatibility with the gemma tool
 GEMMA_V_MAJOR = 98
 GEMMA_V_MINOR = 0
 
@@ -213,15 +213,15 @@ raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
 pheno_idx = gemma_args.index '-p'
 hashme =
   if DO_COMPUTE_KINSHIP and pheno_idx != nil
-    p [pheno_idx,gemma_args[pheno_idx+2..-1]]
+    # Remove the phenotype file from the hash
     gemma_args[0..pheno_idx-1] + gemma_args[pheno_idx+2..-1]
   else
     gemma_args
   end
 
-if DO_COMPUTE_GWA
-  raise "Did not expect GEMMA -p phenotype file switch" if pheno_idx
-  hashme += ['-p', options[:permute_phenotypes]] if options[:permute_phenotypes]
+if DO_COMPUTE_GWA and options[:permute_phenotypes]
+  raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
+  hashme += ['-p', options[:permute_phenotypes]]
 end
 
 require 'digest/sha1'
@@ -254,7 +254,7 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
   cmd="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
   record[:gemma_command] = cmd
   return if cache_hit
-  # debug.call cmd
+  debug.call cmd
   errno =
     if options[:json]
       # capture output
@@ -350,7 +350,7 @@ else
   json_in = JSON.parse(File.read(options[:input]))
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
-  pfn = options[:phenotypes] # can be nil
+  pfn = options[:permute_phenotypes] # can be nil
   k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
   k_files.each do | chr, kfn | # call a GWA for each chromosome
     gwas.call(chr,kfn,pfn)
@@ -358,7 +358,7 @@ else
   # Permute
   if options[:permutate]
     ps = []
-    raise "You should supply --phenotype with gemma-wrapper --permutate" if not pfn
+    raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not pfn
     File.foreach(pfn).with_index do |line, line_num|
       ps << line
     end
