@@ -201,10 +201,10 @@ Next, using K.json, permute the phenotypes with something like
         -lmm 2 -maf 0.1 \
         -debug > GWA.json
 
-This should get the 95% significant and 67% suggestive thresholds:
+This should get the estimated 95% (significant) and 67% (suggestive) thresholds:
 
-    ["95 percentile (significant) ", 2.015475e-05, 4.7]
-    ["67 percentile (suggestive)  ", 2.015475e-05, 4.7]
+    ["95 percentile (significant) ", 1.92081e-05, 4.7]
+    ["67 percentile (suggestive)  ", 5.227785e-05, 4.3]
 
 
 ## Copyright
