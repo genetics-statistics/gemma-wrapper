@@ -128,6 +128,23 @@ default. If you want something else provide a --cache-dir, e.g.
 
 will store K in ~/.gemma-cache.
 
+### GWA
+
+Run the LMM using the K's captured in K.json using the --input
+switch
+
+    gemma-wrapper --json --loco --input K.json -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -c test/data/input/BXD_covariates2.txt \
+        -a test/data/input/BXD_snps.txt \
+        -lmm 2 -maf 0.1 \
+        -debug > GWA.json
+
+Running it twice should show that GWA is not recomputed.
+
+    /tmp/9e411810ad341de6456ce0c6efd4f973356d0bad.log.txt CACHE HIT!
+
 ### LOCO
 
 Recent versions of GEMMA have LOCO support for a single chromosome
@@ -163,6 +180,33 @@ GWA.json contains the file names of every chromosome
 The -k switch is injected automatically. Again output switches are not
 allowed (-o, -outdir)
 
+### Permutations
+
+Permutations can be run with and without LOCO. First create K
+
+    gemma-wrapper --json -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -gk \
+        -debug > K.json
+
+Next, using K.json, permute the phenotypes with something like
+
+    gemma-wrapper --json --loco --input K.json \
+        --permutate 100 --permute-phenotype test/data/input/BXD_pheno.txt -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -c test/data/input/BXD_covariates2.txt \
+        -a test/data/input/BXD_snps.txt \
+        -lmm 2 -maf 0.1 \
+        -debug > GWA.json
+
+This should get the 95% significant and 67% suggestive thresholds:
+
+    ["95 percentile (significant) ", 2.015475e-05, 4.7]
+    ["67 percentile (suggestive)  ", 2.015475e-05, 4.7]
+
+
 ## Copyright
 
-Copyright (c) 2017 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
+Copyright (c) 2017,2018 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
