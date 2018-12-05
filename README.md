@@ -95,7 +95,7 @@ the data files are found):
 
 Run it twice to see
 
-    /tmp/3079151e14b219c3b243b673d88001c1675168b4.log.txt gemma-wrapper CACHE HIT!
+    /tmp/0bdd7add5e8f7d9af36b283d0341c115124273e0.log.txt CACHE HIT!
 
 gemma-wrapper computes the unique HASH value over the command
 line switches passed into GEMMA as well as the contents of the files

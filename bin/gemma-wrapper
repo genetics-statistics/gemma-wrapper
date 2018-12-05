@@ -182,11 +182,16 @@ info.call GEMMA_K_BANNER
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
 
-gemma_version_header = `#{GEMMA_COMMAND}`.split("\n").grep(/GEMMA|Version/)[0].strip
+GEMMA_INFO = `#{GEMMA_COMMAND}`
+gemma_version_header = GEMMA_INFO.split("\n").grep(/GEMMA|Version/)[0].strip
 info.call "Using ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 v_version, v_major, v_minor = gemma_version.split(".")
 info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
+
+p gemma_version_header
+EXPERIMENTAL = (GEMMA_INFO =~ /faster-lmm/)
+info.call "EXPERIMENTAL VERSION of GEMMA!"
 
 warning.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor != nil and v_minor.to_i < GEMMA_V_MINOR))
 
@@ -312,7 +317,11 @@ kinship = lambda do | chr = nil |
   hashi, cache_hit = cache.call chr,ext
   if not cache_hit
     if chr != nil
-      invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
+      if EXPERIMENTAL
+        invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
+      else
+        invoke_gemma.call [ '-loco', '-o', hashi ], cache_hit
+      end
     else
       invoke_gemma.call [ '-o', HASH ], cache_hit
     end
@@ -333,14 +342,18 @@ gwas = lambda do | chr, kfn, pfn |
 end
 
 LOCO = options[:loco]
-# if GEMMA_ARGS.include? '-gk'
 if DO_COMPUTE_KINSHIP
   # compute K
   info.call LOCO
   if LOCO != nil
-    LOCO.each do |chr|
-      info.call "LOCO for ",chr
-      kinship.call(chr)
+    if EXPERIMENTAL
+      info.call "LOCO for full"
+      kinship.call("full")
+    else
+      LOCO.each do |chr|
+        info.call "LOCO for ",chr
+        kinship.call(chr)
+      end
     end
   else
     kinship.call # no LOCO
