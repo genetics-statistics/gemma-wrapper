@@ -38,7 +38,6 @@ GEMMA wrapper example:
 Gemma gets used from the path. You can override by setting
 
       env GEMMA_COMMAND=path/bin/gemma gemma-wrapper ...
-
 "
 # These are used for testing compatibility with the gemma tool
 GEMMA_V_MAJOR = 98
@@ -190,8 +189,6 @@ v_version, v_major, v_minor = gemma_version.split(".")
 info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
 
 p gemma_version_header
-EXPERIMENTAL = (GEMMA_INFO =~ /faster-lmm/)
-info.call "EXPERIMENTAL VERSION of GEMMA!"
 
 warning.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor != nil and v_minor.to_i < GEMMA_V_MINOR))
 
@@ -317,11 +314,7 @@ kinship = lambda do | chr = nil |
   hashi, cache_hit = cache.call chr,ext
   if not cache_hit
     if chr != nil
-      if EXPERIMENTAL
-        invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
-      else
-        invoke_gemma.call [ '-loco', '-o', hashi ], cache_hit
-      end
+      invoke_gemma.call [ '-loco', chr, '-o', hashi ], cache_hit
     else
       invoke_gemma.call [ '-o', HASH ], cache_hit
     end
@@ -346,14 +339,9 @@ if DO_COMPUTE_KINSHIP
   # compute K
   info.call LOCO
   if LOCO != nil
-    if EXPERIMENTAL
-      info.call "LOCO for full"
-      kinship.call("full")
-    else
-      LOCO.each do |chr|
-        info.call "LOCO for ",chr
-        kinship.call(chr)
-      end
+    LOCO.each do |chr|
+      info.call "LOCO for ",chr
+      kinship.call(chr)
     end
   else
     kinship.call # no LOCO
