@@ -180,6 +180,7 @@ info.call GEMMA_K_BANNER
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
+info.call "NOTE: gemma-wrapper is soon to be replaced by gemma2/lib"
 
 GEMMA_INFO = `#{GEMMA_COMMAND}`
 gemma_version_header = GEMMA_INFO.split("\n").grep(/GEMMA|Version/)[0].strip
