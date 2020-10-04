@@ -189,7 +189,7 @@ gemma_version = gemma_version_header.split(/[,\s]+/)[1]
 v_version, v_major, v_minor = gemma_version.split(".")
 info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
 
-p gemma_version_header
+info.call gemma_version_header
 
 warning.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}!" if v_major.to_i < GEMMA_V_MAJOR or (v_major.to_i == GEMMA_V_MAJOR and (v_minor != nil and v_minor.to_i < GEMMA_V_MINOR))
 
