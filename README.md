@@ -1,6 +1,6 @@
 [![gemma-wrapper gem version](https://badge.fury.io/rb/bio-gemma-wrapper.svg)](https://badge.fury.io/rb/bio-gemma-wrapper)
 
-# GEMMA wrapper caches K between runs with LOCO support
+# GEMMA with LOCO, permutations and slurm support (and caching)
 
 ![Genetic associations identified in CFW mice using GEMMA (Parker et al,
 Nat. Genet., 2016)](cfw.gif)
@@ -14,15 +14,13 @@ models (LMMs) and related models to genome-wide association studies
 This repository contains gemma-wrapper, essentially a wrapper of
 GEMMA that provides support for caching the kinship or relatedness
 matrix (K) and caching LM and LMM computations with the option of full
-leave-one-chromosome-out genome scans (LOCO).
+leave-one-chromosome-out genome scans (LOCO). Jobs can also be
+submitted to HPC PBS, i.e., slurm.
 
 gemma-wrapper requires a recent version of GEMMA and essentially
 does a pass-through of all standard GEMMA invocation switches. On
 return gemma-wrapper can return a JSON object (--json) which is
 useful for web-services.
-
-Note that this a work in progress (WIP). What is described below
-should work.
 
 ## Installation
 
@@ -32,8 +30,9 @@ Prerequisites are
 * Standard [Ruby >2.0 ](https://www.ruby-lang.org/en/) which comes on
   almost all Linux systems
 
-gemma-wrapper comes as a Ruby [gem](https://rubygems.org/gems/bio-gemma-wrapper) and
-can be installed with
+gemma-wrapper comes as a Ruby
+[gem](https://rubygems.org/gems/bio-gemma-wrapper) and can be
+installed with
 
     gem install bio-gemma-wrapper
 
@@ -52,6 +51,7 @@ Usage: gemma-wrapper [options] -- [gemma-options]
         --cache-dir path             Use a cache directory
         --json                       Create output file in JSON format
         --force                      Force computation
+        --slurm [options]            Submit to slurm PBS
         --q, --quiet                 Run quietly
     -v, --verbose                    Run verbosely
         --debug                      Show debug messages and keep intermediate output

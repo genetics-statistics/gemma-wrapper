@@ -4,7 +4,7 @@
 # Author:: Pjotr Prins
 # License:: GPL3
 #
-# Copyright (C) 2017,2018 Pjotr Prins <pjotr.prins@thebird.nl>
+# Copyright (C) 2017-2021 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "
 GEMMA wrapper example:
@@ -41,7 +41,7 @@ Gemma gets used from the path. You can override by setting
 "
 # These are used for testing compatibility with the gemma tool
 GEMMA_V_MAJOR = 98
-GEMMA_V_MINOR = 0
+GEMMA_V_MINOR = 1
 
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
@@ -75,7 +75,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir() }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -109,6 +109,11 @@ opts = OptionParser.new do |o|
 
   o.on("--force", "Force computation (override cache)") do |q|
     options[:force] = true
+  end
+
+  o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
+    options[:slurm] = true
+    options[:slurm_opts] = slurm
   end
 
   o.on("--q", "--quiet", "Run quietly") do |q|
@@ -175,14 +180,20 @@ end
 # ---- Start banner
 
 GEMMA_K_VERSION=version
-GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017,2018\n"
+GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017-2021\n"
 info.call GEMMA_K_BANNER
 
 # Check gemma version
 GEMMA_COMMAND=options[:gemma_command]
 info.call "NOTE: gemma-wrapper is soon to be replaced by gemma2/lib"
 
-GEMMA_INFO = `#{GEMMA_COMMAND}`
+begin
+  GEMMA_INFO = `#{GEMMA_COMMAND}`
+rescue Errno::ENOENT
+  GEMMA_COMMAND = "gemma" if not GEMMA_COMMAND
+  error.call "<#{GEMMA_COMMAND}> command not found"
+end
+
 gemma_version_header = GEMMA_INFO.split("\n").grep(/GEMMA|Version/)[0].strip
 info.call "Using ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
