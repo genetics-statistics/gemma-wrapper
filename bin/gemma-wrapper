@@ -65,10 +65,11 @@ if not gemma_command
 end
 
 
+require 'digest/sha1'
 require 'fileutils'
 require 'optparse'
-require 'tmpdir'
 require 'tempfile'
+require 'tmpdir'
 
 split_at = ARGV.index('--')
 if split_at
@@ -232,32 +233,40 @@ hashme = []
 geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
 pheno_idx = gemma_args.index '-p'
+
+if DO_COMPUTE_GWA and options[:permute_phenotypes]
+  raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
+end
+
 hashme =
   if DO_COMPUTE_KINSHIP and pheno_idx != nil
-    # Remove the phenotype file from the hash
+    # Remove the phenotype file from the hash for GRM computation
     gemma_args[0..pheno_idx-1] + gemma_args[pheno_idx+2..-1]
   else
     gemma_args
   end
 
-if DO_COMPUTE_GWA and options[:permute_phenotypes]
-  raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
-  hashme += ['-p', options[:permute_phenotypes]]
-end
-
-require 'digest/sha1'
-debug.call "Hashing on ",hashme,"\n"
-hashes = []
-hashme.each do | item |
-  if File.exist?(item)
-    hashes << Digest::SHA1.hexdigest(File.read(item))
-    debug.call [item,hashes.last]
-  else
-    hashes << item
+compute_hash = lambda do | phenofn = nil |
+  # Compute a HASH on the inputs
+  debug.call "Hashing on ",hashme,"\n"
+  hashes = []
+  hm = if phenofn
+         hashme << phenofn
+       else
+         hashme
+       end
+  hm.each do | item |
+    if File.exist?(item)
+      hashes << Digest::SHA1.hexdigest(File.read(item))
+      debug.call [item,hashes.last]
+    else
+      hashes << item
+    end
   end
+  Digest::SHA1.hexdigest hashes.join(' ')
 end
-HASH = Digest::SHA1.hexdigest hashes.join(' ')
 
+HASH = compute_hash.call()
 options[:hash] = HASH
 
 # Create cache dir
@@ -327,9 +336,9 @@ srun #{cmd}
 end
 
 # returns datafn, logfn, cache_hit
-cache = lambda do | chr, ext |
+cache = lambda do | chr, ext, h=HASH |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
-  hashi = (chr==nil ? HASH : HASH+inject)
+  hashi = (chr==nil ? h : h+inject)
   prefix = options[:cache_dir]+'/'+hashi
   logfn  = prefix+".log.txt"
   datafn = prefix+ext
@@ -369,7 +378,9 @@ end
 gwas = lambda do | chr, kfn, pfn, permutation=1 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
-  hashi, cache_hit = cache.call chr,".assoc.txt"
+  # Update hash for each permutation
+  hash = compute_hash(pfn)
+  hashi, cache_hit = cache.call(chr,".assoc.txt",hash)
   if not cache_hit
     args = [ '-k', kfn, '-o', hashi ]
     args << [ '-loco', chr ] if chr != nil
