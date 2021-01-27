@@ -206,6 +206,11 @@ This should get the estimated 95% (significant) and 67% (suggestive) thresholds:
     ["95 percentile (significant) ", 1.92081e-05, 4.7]
     ["67 percentile (suggestive)  ", 5.227785e-05, 4.3]
 
+### Slurm PBS
+
+To run gemma-wrapper on HPC use the '--slurm' switch. Example
+
+
 
 ## Copyright
 

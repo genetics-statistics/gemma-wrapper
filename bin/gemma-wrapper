@@ -271,7 +271,7 @@ GEMMA_ARGS = gemma_args
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-invoke_gemma = lambda do |extra_args, cache_hit = false, permutation = 0|
+invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
   cmd = "#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
   record[:gemma_command] = cmd
   return if cache_hit
@@ -279,15 +279,15 @@ invoke_gemma = lambda do |extra_args, cache_hit = false, permutation = 0|
     info.call cmd
     hashi = HASH
     prefix = options[:cache_dir]+'/'+hashi
-    scriptfn  = prefix+"#{chr}.#{permutation}-pbs.sh"
+    scriptfn  = prefix+".#{chr}.#{permutation}-pbs.sh"
     script = "#!/bin/bash
 #SBATCH --job-name=gemma-#{scriptfn}
 #SBATCH --ntasks=1
 #SBATCH --time=20:00
 srun #{cmd}
-"    
+"
     debug.call(script)
-    File.open(scriptfn,"w") { |f| 
+    File.open(scriptfn,"w") { |f|
       f.write(script)
     }
     cmd = "sbatch "+options[:slurm_opts] + scriptfn
@@ -366,7 +366,7 @@ kinship = lambda do | chr = nil |
 end
 
 # ---- Run GWA
-gwas = lambda do | chr, kfn, pfn, i=0 |
+gwas = lambda do | chr, kfn, pfn, permutation=1 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   hashi, cache_hit = cache.call chr,".assoc.txt"
@@ -374,7 +374,7 @@ gwas = lambda do | chr, kfn, pfn, i=0 |
     args = [ '-k', kfn, '-o', hashi ]
     args << [ '-loco', chr ] if chr != nil
     args << [ '-p', pfn ] if pfn
-    invoke_gemma.call args,false,i
+    invoke_gemma.call args,false,chr,permutation
   end
 end
 
@@ -409,10 +409,10 @@ else
     end
     score_list = []
     debug.call(options[:permutate],"x permutations")
-    (1..options[:permutate]).each do |i|
-      $stderr.print "Iteration ",i,"\n"
+    (1..options[:permutate]).each do |permutation|
+      $stderr.print "Iteration ",purmutation,"\n"
       # Create a shuffled phenotype file
-      file = File.open("phenotypes-#{i}","w")
+      file = File.open("phenotypes-#{permutation}","w")
       tmp_pfn = file.path
       p tmp_pfn
       ps.shuffle.each do | l |
@@ -420,7 +420,7 @@ else
       end
       file.close
       k_files.each do | chr, kfn | # call a GWA for each chromosome
-        gwas.call(chr,kfn,tmp_pfn,i)
+        gwas.call(chr,kfn,tmp_pfn,permutation)
       end
       score_min = 1000.0
       if not options[:slurm]
