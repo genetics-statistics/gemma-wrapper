@@ -273,7 +273,18 @@ debug.call "Options: ",options,"\n" if !options[:quiet]
 
 invoke_gemma = lambda do |extra_args, cache_hit = false|
   cmd = "#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
-  cmd = "srun "+options[:slurm_opts]+cmd if options[:slurm]
+  if options[:slurm]
+    script = "#!/bin/bash
+#SBATCH --job-name=gemma
+#SBATCH --ntasks=1
+#SBATCH --time=20:00
+#{cmd}
+"
+    info.call(script)
+    tmpfile = Tempfile.new
+    tmpfile << script
+    cmd = "sbatch "+options[:slurm_opts] + tmpfile.path
+  end
   record[:gemma_command] = cmd
   return if cache_hit
   info.call cmd
