@@ -283,7 +283,7 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
     debug.call(script)
     hashi = HASH
     prefix = options[:cache_dir]+'/'+hashi
-    scriptfn  = prefix+".sh"
+    scriptfn  = prefix+"-pbs.sh"
     File.open(scriptfn,"w").write(script)
     cmd = "sbatch "+options[:slurm_opts] + scriptfn
   end
