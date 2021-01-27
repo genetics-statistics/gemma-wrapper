@@ -280,10 +280,12 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
 #SBATCH --time=20:00
 #{cmd}
 "
-    info.call(script)
-    tmpfile = Tempfile.new
-    tmpfile << script
-    cmd = "sbatch "+options[:slurm_opts] + tmpfile.path
+    debug.call(script)
+    hashi = HASH
+    prefix = options[:cache_dir]+'/'+hashi
+    scriptfn  = prefix+".sh"
+    File.open(scriptfn,"w").write(script)
+    cmd = "sbatch "+options[:slurm_opts] + scriptfn
   end
   record[:gemma_command] = cmd
   return if cache_hit
