@@ -271,25 +271,27 @@ GEMMA_ARGS = gemma_args
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-invoke_gemma = lambda do |extra_args, cache_hit = false|
+invoke_gemma = lambda do |extra_args, cache_hit = false, permutation = 0|
   cmd = "#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
-  if options[:slurm]
-    script = "#!/bin/bash
-#SBATCH --job-name=gemma
-#SBATCH --ntasks=1
-#SBATCH --time=20:00
-#{cmd}
-"
-    debug.call(script)
-    hashi = HASH
-    prefix = options[:cache_dir]+'/'+hashi
-    scriptfn  = prefix+"-pbs.sh"
-    File.open(scriptfn,"w").write(script)
-    cmd = "sbatch "+options[:slurm_opts] + scriptfn
-  end
   record[:gemma_command] = cmd
   return if cache_hit
-  info.call cmd
+  if options[:slurm]
+    info.call cmd
+    hashi = HASH
+    prefix = options[:cache_dir]+'/'+hashi
+    scriptfn  = prefix+"#{chr}.#{permutation}-pbs.sh"
+    script = "#!/bin/bash
+#SBATCH --job-name=gemma-#{scriptfn}
+#SBATCH --ntasks=1
+#SBATCH --time=20:00
+srun #{cmd}
+"    
+    debug.call(script)
+    File.open(scriptfn,"w") { |f| 
+      f.write(script)
+    }
+    cmd = "sbatch "+options[:slurm_opts] + scriptfn
+  end
   errno =
     if options[:json]
       # capture output
@@ -364,7 +366,7 @@ kinship = lambda do | chr = nil |
 end
 
 # ---- Run GWA
-gwas = lambda do | chr, kfn, pfn |
+gwas = lambda do | chr, kfn, pfn, i=0 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   hashi, cache_hit = cache.call chr,".assoc.txt"
@@ -372,7 +374,7 @@ gwas = lambda do | chr, kfn, pfn |
     args = [ '-k', kfn, '-o', hashi ]
     args << [ '-loco', chr ] if chr != nil
     args << [ '-p', pfn ] if pfn
-    invoke_gemma.call args
+    invoke_gemma.call args,false,i
   end
 end
 
@@ -418,21 +420,23 @@ else
       end
       file.close
       k_files.each do | chr, kfn | # call a GWA for each chromosome
-        gwas.call(chr,kfn,tmp_pfn)
+        gwas.call(chr,kfn,tmp_pfn,i)
       end
-      exit 0 if options[:slurm]
-      # p [:HEY,record[:files].last]
-      assocfn = record[:files].last[2]
-      debug.call("Reading ",assocfn)
       score_min = 1000.0
-      File.foreach(assocfn).with_index do |assoc, assoc_line_num|
-        if assoc_line_num > 0
-          value = assoc.strip.split(/\t/).last.to_f
-          score_min = value if value < score_min
+      if not options[:slurm]
+        # p [:HEY,record[:files].last]
+        assocfn = record[:files].last[2]
+        debug.call("Reading ",assocfn)
+        File.foreach(assocfn).with_index do |assoc, assoc_line_num|
+          if assoc_line_num > 0
+            value = assoc.strip.split(/\t/).last.to_f
+            score_min = value if value < score_min
+          end
         end
       end
       score_list << score_min
     end
+    exit 0 if options[:slurm]
     ls = score_list.sort
     p ls
     significant = ls[(ls.size - ls.size*0.95).floor]
