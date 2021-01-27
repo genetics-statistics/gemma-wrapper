@@ -124,8 +124,12 @@ opts = OptionParser.new do |o|
     options[:verbose] = true
   end
 
-  o.on("--debug", "Show debug messages and keep intermediate output") do |v|
+  o.on("-d", "--debug", "Show debug messages and keep intermediate output") do |v|
     options[:debug] = true
+  end
+
+  o.on("--dry-run", "Show commands, but don't execute") do |b|
+    options[:dry_run] = b
   end
 
   o.on('--','Anything after gets passed to GEMMA') do
@@ -273,18 +277,27 @@ invoke_gemma = lambda do |extra_args, cache_hit = false|
     if options[:json]
       # capture output
       err = 0
-      IO.popen(cmd) do |io|
-        while s = io.gets
-          $stderr.print s
+      if options[:dry_run]
+        info.call("Would have invoked: ",cmd)
+      else
+        IO.popen(cmd) do |io|
+          while s = io.gets
+            $stderr.print s
+          end
+          io.close
+          err = $?.to_i
         end
-        io.close
-        err = $?.to_i
       end
       err
     else
-      debug.call("Invoking ",cmd) if options[:debug]
-      system(cmd)
-      $?.exitstatus
+      if options[:dry_run]
+        info.call("Would have invoked ",cmd)
+        0
+      else
+        debug.call("Invoking ",cmd) if options[:debug]
+        system(cmd)
+        $?.exitstatus
+      end
     end
   if errno != 0
     debug.call "Gemma exit ",errno
