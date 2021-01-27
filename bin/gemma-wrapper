@@ -112,8 +112,11 @@ opts = OptionParser.new do |o|
   end
 
   o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
+    options[:slurm_opts] = ""
     options[:slurm] = true
-    options[:slurm_opts] = slurm
+    if slurm
+      options[:slurm_opts] = slurm
+    end
   end
 
   o.on("--q", "--quiet", "Run quietly") do |q|
@@ -269,10 +272,11 @@ GEMMA_ARGS = gemma_args
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
 invoke_gemma = lambda do |extra_args, cache_hit = false|
-  cmd="#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  cmd = "#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  cmd = "srun "+options[:slurm_opts]+cmd if options[:slurm]
   record[:gemma_command] = cmd
   return if cache_hit
-  debug.call cmd
+  info.call cmd
   errno =
     if options[:json]
       # capture output
@@ -403,6 +407,7 @@ else
       k_files.each do | chr, kfn | # call a GWA for each chromosome
         gwas.call(chr,kfn,tmp_pfn)
       end
+      exit 0 if options[:slurm]
       # p [:HEY,record[:files].last]
       assocfn = record[:files].last[2]
       debug.call("Reading ",assocfn)
