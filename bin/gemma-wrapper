@@ -255,8 +255,9 @@ compute_hash = lambda do | phenofn = nil |
        else
          hashme
        end
+  debug.call(hm)
   hm.each do | item |
-    if File.exist?(item)
+    if File.file?(item) 
       hashes << Digest::SHA1.hexdigest(File.read(item))
       debug.call [item,hashes.last]
     else
@@ -336,10 +337,10 @@ srun #{cmd}
 end
 
 # returns datafn, logfn, cache_hit
-cache = lambda do | chr, ext, h=HASH |
+cache = lambda do | chr, ext, h=HASH, permutation=1 |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
   hashi = (chr==nil ? h : h+inject)
-  prefix = options[:cache_dir]+'/'+hashi
+  prefix = options[:cache_dir]+'/'+hashi+"."+permutation.to_s
   logfn  = prefix+".log.txt"
   datafn = prefix+ext
   record[:files] ||= []
@@ -379,8 +380,8 @@ gwas = lambda do | chr, kfn, pfn, permutation=1 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   # Update hash for each permutation
-  hash = compute_hash(pfn)
-  hashi, cache_hit = cache.call(chr,".assoc.txt",hash)
+  hash = compute_hash.call(pfn)
+  hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
   if not cache_hit
     args = [ '-k', kfn, '-o', hashi ]
     args << [ '-loco', chr ] if chr != nil
