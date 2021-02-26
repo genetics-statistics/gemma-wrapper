@@ -251,7 +251,7 @@ compute_hash = lambda do | phenofn = nil |
   debug.call "Hashing on ",hashme,"\n"
   hashes = []
   hm = if phenofn
-         hashme << phenofn
+         hashme + ["-p", phenofn]
        else
          hashme
        end
@@ -422,7 +422,7 @@ else
     score_list = []
     debug.call(options[:permutate],"x permutations")
     (1..options[:permutate]).each do |permutation|
-      $stderr.print "Iteration ",purmutation,"\n"
+      $stderr.print "Iteration ",permutation,"\n"
       # Create a shuffled phenotype file
       file = File.open("phenotypes-#{permutation}","w")
       tmp_pfn = file.path
@@ -435,7 +435,7 @@ else
         gwas.call(chr,kfn,tmp_pfn,permutation)
       end
       score_min = 1000.0
-      if not options[:slurm]
+      if false and not options[:slurm]
         # p [:HEY,record[:files].last]
         assocfn = record[:files].last[2]
         debug.call("Reading ",assocfn)
