@@ -355,10 +355,12 @@ srun #{cmd}
 end
 
 # returns datafn, logfn, cache_hit
-cache = lambda do | chr, ext, h=HASH, permutation=1 |
+cache = lambda do | chr, ext, h=HASH, permutation=0 |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
   hashi = (chr==nil ? h : h+inject)
-  prefix = options[:cache_dir]+'/'+hashi+"."+permutation.to_s
+  prefix = options[:cache_dir]+'/'+hashi+(permutation!=0 ? "."+permutation.to_s : "")
+  # for chr 3 and permutation 1 forms something like
+  #   /tmp/1b700-a996f.3.cXX.txt.1.log.txt
   logfn  = prefix+".log.txt"
   datafn = prefix+ext
   record[:files] ||= []
