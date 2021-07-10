@@ -272,7 +272,7 @@ compute_hash = lambda do | phenofn = nil |
        end
   debug.call(hm)
   hm.each do | item |
-    if File.file?(item) 
+    if File.file?(item)
       hashes << Digest::SHA1.hexdigest(File.read(item))
       debug.call [item,hashes.last]
     else
@@ -479,8 +479,11 @@ end
 
 # ---- Invoke parallel
 if options[:parallel]
-  print parallel_cmds.join("\n")
-  print `parallel < #{parallel_cmds.join("\n")}`
+  # parallel_cmds = ["echo 1","sleep 1 && echo 2", "echo 3"]
+  cmd = parallel_cmds.join("\\n")
+
+  cmd = "echo -e \"#{cmd}\""
+  print `#{cmd}|parallel`
 else
   json_out.call
 end
