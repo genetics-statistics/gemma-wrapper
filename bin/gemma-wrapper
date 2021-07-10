@@ -483,7 +483,6 @@ if options[:parallel]
   cmd = parallel_cmds.join("\\n")
 
   cmd = "echo -e \"#{cmd}\""
-  print `#{cmd}|parallel`
-else
-  json_out.call
+  $stderr.print `#{cmd}|parallel`
 end
+json_out.call
