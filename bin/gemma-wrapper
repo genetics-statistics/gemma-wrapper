@@ -396,7 +396,7 @@ kinship = lambda do | chr = nil |
 end
 
 # ---- Run GWA
-gwas = lambda do | chr, kfn, pfn, permutation=1 |
+gwas = lambda do | chr, kfn, pfn, permutation=0 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   # Update hash for each permutation
