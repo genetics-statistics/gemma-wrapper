@@ -112,6 +112,10 @@ opts = OptionParser.new do |o|
     options[:force] = true
   end
 
+  o.on("--parallel", "Run jobs in parallel") do |b|
+    options[:parallel] = b
+  end
+
   o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
     options[:slurm_opts] = ""
     options[:slurm] = true
@@ -141,6 +145,7 @@ opts = OptionParser.new do |o|
   end
 
   o.separator ""
+
   o.on_tail('-h', '--help', 'display this help and exit') do
     options[:show_help] = true
   end
@@ -228,6 +233,16 @@ end
 DO_COMPUTE_KINSHIP = gemma_args.include?("-gk")
 DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
 
+# ---- Set up parallel
+if options[:parallel]
+  begin
+    PARALLEL_INFO = `parallel --help`
+  rescue Errno::ENOENT
+    error.call "<parallel> command not found"
+  end
+  parallel_cmds = []
+end
+
 # ---- Compute HASH on inputs
 hashme = []
 geno_idx = gemma_args.index '-g'
@@ -308,6 +323,9 @@ srun #{cmd}
       err = 0
       if options[:dry_run]
         info.call("Would have invoked: ",cmd)
+      elsif options[:parallel]
+        info.call("Add parallel job: ",cmd)
+        parallel_cmds << cmd
       else
         IO.popen(cmd) do |io|
           while s = io.gets
@@ -459,5 +477,10 @@ else
   end
 end
 
-json_out.call
-exit 0
+# ---- Invoke parallel
+if options[:parallel]
+  print parallel_cmds.join("\n")
+  print `parallel < #{parallel_cmds.join("\n")}`
+else
+  json_out.call
+end

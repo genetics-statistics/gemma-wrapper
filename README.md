@@ -7,6 +7,12 @@ Nat. Genet., 2016)](cfw.gif)
 
 ## Introduction
 
+Gemma-wrapper allows running GEMMA with LOCO, GEMMA with caching,
+GEMMA in parallel and GEMMA on PBS. It is used as part of the
+https://genenetwork.org/ environment.
+
+Note that gemma-wrapper is projected to be integrated into gemma2/lib.
+
 GEMMA is a software toolkit for fast application of linear mixed
 models (LMMs) and related models to genome-wide association studies
 (GWAS) and other large-scale data sets.
@@ -68,6 +74,8 @@ of
 Unpack it and run the tool as
 
     ./bin/gemma-wrapper --help
+
+See below for using a GNU Guix environment.
 
 ## Usage
 
@@ -152,7 +160,7 @@ using the -loco switch (for supported formats check
 https://github.com/genetics-statistics/GEMMA/issues/46). To loop all
 chromosomes first create all K's with
 
-    gemma-wrapper --json \
+    gemma-wrapper --parallel --json \
         --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -163,7 +171,7 @@ chromosomes first create all K's with
 and next run the LMM's using the K's captured in K.json using the --input
 switch
 
-    gemma-wrapper --json --loco --input K.json -- \
+    gemma-wrapper --parallel --json --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -208,10 +216,17 @@ This should get the estimated 95% (significant) and 67% (suggestive) thresholds:
 
 ### Slurm PBS
 
-To run gemma-wrapper on HPC use the '--slurm' switch. Example
+To run gemma-wrapper on HPC use the '--slurm' switch.
 
+## Development
 
+We use GNU Guix for development and deployment. Use the [.guix-deploy](.guix-deploy) script in the checked out git repo:
+
+```
+source .guix-deploy
+ruby bin/gemma-wrapper --help
+```
 
 ## Copyright
 
-Copyright (c) 2017,2018 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
+Copyright (c) 2017-2021 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
