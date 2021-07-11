@@ -253,6 +253,26 @@ if DO_COMPUTE_GWA and options[:permute_phenotypes]
   raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
 end
 
+
+execute = lambda { |cmd|
+  info.call("Executing: #{cmd}")
+  err = 0
+  if options[:verbose]
+    # send output to stderr line by line (which is slower)
+    IO.popen("#{cmd}") do |io|
+      while s = io.gets
+        $stderr.print s
+      end
+      io.close
+      err = $?.to_i
+    end
+  else
+    $stderr.print `#{cmd}`
+    err = $?.to_i
+  end
+  err
+}
+
 hashme =
   if DO_COMPUTE_KINSHIP and pheno_idx != nil
     # Remove the phenotype file from the hash for GRM computation
@@ -327,13 +347,7 @@ srun #{cmd}
         info.call("Add parallel job: ",cmd)
         parallel_cmds << cmd
       else
-        IO.popen(cmd) do |io|
-          while s = io.gets
-            $stderr.print s
-          end
-          io.close
-          err = $?.to_i
-        end
+        err = execute.call(cmd)
       end
       err
     else
@@ -485,6 +499,7 @@ if options[:parallel]
   cmd = parallel_cmds.join("\\n")
 
   cmd = "echo -e \"#{cmd}\""
-  $stderr.print `#{cmd}|parallel`
+  err = execute.call(cmd+"|parallel")
+  exit err if err != 0
 end
 json_out.call
