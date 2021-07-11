@@ -116,9 +116,10 @@ You can also get JSON output on STDOUT by providing the --json switch
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -gk \
-        -debug
+        -debug > K.json
 
-prints out something that can be parsed with a calling program
+K.json is something that can be parsed with a calling program, and is
+also below as input for the GWA step. Example:
 
 ```json
 {"warnings":[],"errno":0,"debug":[],"type":"K","files":[["/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.log.txt","/tmp/18ce786ab92064a7ee38a7422e7838abf91f5eb0.cXX.txt"]],"cache_hit":true,"gemma_command":"../gemma/bin/gemma -g test/data/input/BXD_geno.txt.gz -p test/data/input/BXD_pheno.txt -gk -debug -outdir /tmp -o 18ce786ab92064a7ee38a7422e7838abf91f5eb0"}
@@ -138,7 +139,7 @@ will store K in ~/.gemma-cache.
 
 ### GWA
 
-Run the LMM using the K's captured in K.json using the --input
+Run the LMM using the K's captured earlier in K.json using the --input
 switch
 
     gemma-wrapper --json --loco --input K.json -- \
