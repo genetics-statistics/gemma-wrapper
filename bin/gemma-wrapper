@@ -498,11 +498,22 @@ end
 
 # ---- Invoke parallel
 if options[:parallel]
-  # parallel_cmds = ["echo 1","sleep 1 && echo 2", "echo 3"]
+  # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
   cmd = parallel_cmds.join("\\n")
 
   cmd = "echo -e \"#{cmd}\""
-  err = execute.call(cmd+"|parallel")
-  exit err if err != 0
+  err = execute.call(cmd+"|parallel") # all jobs in parallel
+  if err != 0
+    [16,8,4,1].each do |jobs|
+      info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
+      err = execute.call(cmd+"|parallel -j #{jobs}")
+      break if err == 0
+    end
+    if err != 0
+      info.call("Run failed!")
+      exit err
+    end
+  end
+  info.call("Run successful!")
 end
 json_out.call
