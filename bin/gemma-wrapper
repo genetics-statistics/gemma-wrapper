@@ -91,7 +91,7 @@ opts = OptionParser.new do |o|
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
   end
 
-  o.on('--loco [x,y,1,2,3...]', Array, 'Run full LOCO') do |lst|
+  o.on('--loco [x,y,1,2,3...]', Array, 'Run full leave-one-chromosome-out (LOCO)') do |lst|
     options[:loco] = lst
   end
 
