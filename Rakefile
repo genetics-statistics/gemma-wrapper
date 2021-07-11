@@ -10,7 +10,7 @@ require 'rake'
 task default: %w[test]
 
 task :test do
-  ruby "bin/gemma-wrapper  --json \
+  ruby "bin/gemma-wrapper  --json --force \
         --loco 1,2,3,4 -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -18,14 +18,14 @@ task :test do
         -gk -debug > K.json"
   fail "Test failed" if $? != 0
   # run again for cache hits
-  ruby "bin/gemma-wrapper  --json \
+  ruby "bin/gemma-wrapper  --json --force \
         --loco 1,2,3,4 -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
         -gk -debug > K2.json"
   fail "Test failed" if $? != 0
-  ruby "bin/gemma-wrapper --json --loco --input K.json -- \
+  ruby "bin/gemma-wrapper --json --force --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -34,7 +34,7 @@ task :test do
         -debug > GWA.json"
   fail "Test failed" if $? != 0
   # run again
-  ruby "bin/gemma-wrapper --json --loco --input K.json -- \
+  ruby "bin/gemma-wrapper --json --force --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
