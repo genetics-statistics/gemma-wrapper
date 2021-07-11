@@ -76,7 +76,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, parallel: true }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -112,8 +112,8 @@ opts = OptionParser.new do |o|
     options[:force] = true
   end
 
-  o.on("--parallel", "Run jobs in parallel") do |b|
-    options[:parallel] = b
+  o.on("--no-parallel", "Do not run jobs in parallel") do |b|
+    options[:parallel] = false
   end
 
   o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
@@ -230,6 +230,9 @@ if RUBY_VERSION =~ /^1/
   warning "runs on Ruby 2.x only\n"
 end
 
+debug.call(options) # some debug output
+debug.call(record)
+
 DO_COMPUTE_KINSHIP = gemma_args.include?("-gk")
 DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
 
@@ -257,8 +260,8 @@ end
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
   err = 0
-  if options[:verbose]
-    # send output to stderr line by line (which is slower)
+  if not options[:debug]
+    # send output to stderr line by line
     IO.popen("#{cmd}") do |io|
       while s = io.gets
         $stderr.print s
