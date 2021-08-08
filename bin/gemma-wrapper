@@ -41,7 +41,7 @@ Gemma gets used from the path. You can override by setting
 "
 # These are used for testing compatibility with the gemma tool
 GEMMA_V_MAJOR = 98
-GEMMA_V_MINOR = 1
+GEMMA_V_MINOR = 4
 
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
