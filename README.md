@@ -53,7 +53,8 @@ and it will render something like
 Usage: gemma-wrapper [options] -- [gemma-options]
         --permutate n                Permutate # times by shuffling phenotypes
         --permute-phenotypes filen   Phenotypes to be shuffled in permutations
-        --loco [x,y,1,2,3...]        Run full LOCO
+        --loco                       Run full LOCO
+        --chromosomes [1,2,...]      Chromosomes to scan
         --input filen                JSON input variables (used for LOCO)
         --cache-dir path             Use a cache directory
         --json                       Create output file in JSON format
@@ -143,7 +144,7 @@ will store K in ~/.gemma-cache.
 Run the LMM using the K's captured earlier in K.json using the --input
 switch
 
-    gemma-wrapper --json --loco --input K.json -- \
+    gemma-wrapper --json --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -163,7 +164,7 @@ https://github.com/genetics-statistics/GEMMA/issues/46). To loop all
 chromosomes first create all K's with
 
     gemma-wrapper --json \
-        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \
+        --loco -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \

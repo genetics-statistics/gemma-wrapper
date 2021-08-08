@@ -11,7 +11,7 @@ task default: %w[test]
 
 task :test do
   ruby "bin/gemma-wrapper  --json --force \
-        --loco 1,2,3,4 -- \
+        --loco --chromosomes 1,2,3,4 -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
@@ -19,7 +19,7 @@ task :test do
   fail "Test failed" if $? != 0
   # run again for cache hits
   ruby "bin/gemma-wrapper  --json  \
-        --loco 1,2,3,4 -- \
+        --loco --chromosomes 1,2,3,4 -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \

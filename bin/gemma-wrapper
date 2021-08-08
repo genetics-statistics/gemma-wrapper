@@ -72,6 +72,7 @@ require 'tempfile'
 require 'tmpdir'
 
 split_at = ARGV.index('--')
+
 if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
@@ -91,8 +92,12 @@ opts = OptionParser.new do |o|
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
   end
 
-  o.on('--loco [x,y,1,2,3...]', Array, 'Run full leave-one-chromosome-out (LOCO)') do |lst|
-    options[:loco] = lst
+  o.on('--loco', 'Run full leave-one-chromosome-out (LOCO)') do |b|
+    options[:loco] = b
+  end
+
+  o.on('--chromosomes [1,2,3]',Array,'Run specific chromosomes') do |lst|
+    options[:chromosomes] = lst
   end
 
   o.on('--input filen',String, 'JSON input variables (used for LOCO)') do |filen|
@@ -190,6 +195,15 @@ info = lambda do |*msg|
   OUTPUT.print *msg,"\n" if !options[:quiet]
 end
 
+# Fetch chromosomes
+def get_chromosomes annofn
+  h = {}
+  File.open(annofn,"r").each_line do | line |
+    chr = line.split(/\s+/)[2]
+    h[chr] = true
+  end
+  h.map { |k,v| k }
+end
 # ---- Start banner
 
 GEMMA_K_VERSION=version
@@ -247,6 +261,11 @@ if options[:parallel]
   end
   parallel_cmds = []
 end
+
+# ---- Fetch chromosomes from SNP annotation file
+anno_idx = gemma_args.index '-a'
+raise "Expected GEMMA -a genotype file switch" if anno_idx == nil
+CHROMOSOMES = get_chromosomes(gemma_args[anno_idx+1])
 
 # ---- Compute HASH on inputs
 hashme = []
@@ -434,11 +453,17 @@ gwas = lambda do | chr, kfn, pfn, permutation=0 |
 end
 
 LOCO = options[:loco]
+if LOCO
+  if options[:chromosomes]
+    CHROMOSOMES = options[:chromosomes]
+  end
+end
+
 if DO_COMPUTE_KINSHIP
   # compute K
-  info.call LOCO
-  if LOCO != nil
-    LOCO.each do |chr|
+  info.call CHROMOSOMES
+  if LOCO
+    CHROMOSOMES.each do |chr|
       info.call "LOCO for ",chr
       kinship.call(chr)
     end
