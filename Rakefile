@@ -10,12 +10,27 @@ require 'rake'
 task default: %w[test]
 
 task :test do
+  ruby "bin/gemma-wrapper --json --force -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -a test/data/input/BXD_snps.txt \
+        -gk \
+        -debug > K0.json"
+  fail "Test failed" if $? != 0
+  ruby "bin/gemma-wrapper --json --input K0.json -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -c test/data/input/BXD_covariates2.txt \
+        -a test/data/input/BXD_snps.txt \
+        -lmm 2 -maf 0.1 \
+        -debug > GWA0.json"
+  fail "Test failed" if $? != 0
   ruby "bin/gemma-wrapper  --json --force \
         --loco --chromosomes 1,2,3,4 -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
-        -gk -debug > K.json"
+        -gk -debug > KLOCO1.json"
   fail "Test failed" if $? != 0
   # run again for cache hits
   ruby "bin/gemma-wrapper  --json  \
@@ -23,9 +38,9 @@ task :test do
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
-        -gk -debug > K2.json"
+        -gk -debug > KLOCO2.json"
   fail "Test failed" if $? != 0
-  ruby "bin/gemma-wrapper --json --force --loco --input K.json -- \
+  ruby "bin/gemma-wrapper --json --force --loco --input KLOCO1.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -34,7 +49,7 @@ task :test do
         -debug > GWA.json"
   fail "Test failed" if $? != 0
   # and run again
-  ruby "bin/gemma-wrapper --json --loco --input K.json -- \
+  ruby "bin/gemma-wrapper --json --loco --input KLOCO2.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \

@@ -2,6 +2,7 @@
 
 * Fetch chromosome names from the annotation file - working of --loco switch changed!
 * Use --chromosomes switch to override which chromosomes to compute
+* Also allow for parallel GWA compute of not-LOCO (unLOCO?)
 
 ## ChangeLog v0.99.2 (20210808)
 

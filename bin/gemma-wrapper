@@ -476,9 +476,16 @@ else
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
   pfn = options[:permute_phenotypes] # can be nil
-  k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
-  k_files.each do | chr, kfn | # call a GWA for each chromosome
-    gwas.call(chr,kfn,pfn)
+  if LOCO
+    k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
+    k_files.each do | chr, kfn | # call a GWA for each chromosome
+      gwas.call(chr,kfn,pfn)
+    end
+  else
+    kfn = json_in["files"][0][2]
+    CHROMOSOMES.each do | chr |
+      gwas.call(chr,kfn,pfn)
+    end
   end
   # Permute
   if options[:permutate]

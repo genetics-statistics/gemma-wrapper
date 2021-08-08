@@ -100,6 +100,7 @@ the data files are found):
     gemma-wrapper -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
+        -a test/data/input/BXD_snps.txt \
         -gk \
         -debug
 
@@ -117,6 +118,7 @@ You can also get JSON output on STDOUT by providing the --json switch
     gemma-wrapper --json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
+        -a test/data/input/BXD_snps.txt \
         -gk \
         -debug > K.json
 
@@ -134,6 +136,7 @@ default. If you want something else provide a --cache-dir, e.g.
     gemma-wrapper --cache-dir ~/.gemma-cache -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
+        -a test/data/input/BXD_snps.txt \
         -gk \
         -debug
 
