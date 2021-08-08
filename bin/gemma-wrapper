@@ -239,6 +239,8 @@ DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
 # ---- Set up parallel
 if options[:parallel]
   begin
+    skip_cite = `echo "will cite" |parallel --citation`
+    debug.call(skip_cite)
     PARALLEL_INFO = `parallel --help`
   rescue Errno::ENOENT
     error.call "<parallel> command not found"
@@ -255,7 +257,6 @@ pheno_idx = gemma_args.index '-p'
 if DO_COMPUTE_GWA and options[:permute_phenotypes]
   raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
 end
-
 
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
@@ -276,14 +277,6 @@ execute = lambda { |cmd|
   err
 }
 
-hashme =
-  if DO_COMPUTE_KINSHIP and pheno_idx != nil
-    # Remove the phenotype file from the hash for GRM computation
-    gemma_args[0..pheno_idx-1] + gemma_args[pheno_idx+2..-1]
-  else
-    gemma_args
-  end
-
 compute_hash = lambda do | phenofn = nil |
   # Compute a HASH on the inputs
   debug.call "Hashing on ",hashme,"\n"
@@ -302,6 +295,7 @@ compute_hash = lambda do | phenofn = nil |
       hashes << item
     end
   end
+  debug.call(hashes)
   Digest::SHA1.hexdigest hashes.join(' ')
 end
 
@@ -311,11 +305,22 @@ options[:hash] = HASH
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
+Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
+
 error.call "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
 error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
+GEMMA_ARGS_HASH = gemma_args.dup # do not include outdir
 gemma_args << '-outdir'
-gemma_args << options[:cache_dir]
+gemma_args << tmpdir
 GEMMA_ARGS = gemma_args
+
+hashme =
+  if DO_COMPUTE_KINSHIP and pheno_idx != nil
+    # Remove the phenotype file from the hash for GRM computation
+    GEMMA_ARGS_HASH[0..pheno_idx-1] + GEMMA_ARGS_HASH[pheno_idx+2..-1]
+  else
+    GEMMA_ARGS_HASH
+  end
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
@@ -326,7 +331,7 @@ invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutati
   if options[:slurm]
     info.call cmd
     hashi = HASH
-    prefix = options[:cache_dir]+'/'+hashi
+    prefix = tmpdir+'/'+hashi
     scriptfn  = prefix+".#{chr}.#{permutation}-pbs.sh"
     script = "#!/bin/bash
 #SBATCH --job-name=gemma-#{scriptfn}
@@ -371,6 +376,7 @@ srun #{cmd}
   end
 end
 
+# Takes the hash value and checks whether the (output) file exists
 # returns datafn, logfn, cache_hit
 cache = lambda do | chr, ext, h=HASH, permutation=0 |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
@@ -517,3 +523,17 @@ if options[:parallel]
   info.call("Run successful!")
 end
 json_out.call
+
+# copy all output files to the cache_dir. If a file exists only emit a warning
+Dir.glob("*.txt", base: tmpdir) do | fn |
+  source = tmpdir + "/" + fn
+  dest = options[:cache_dir] + "/" + fn
+  if not File.exist?(dest) or options[:force]
+    info.call "Move #{source} to #{dest}"
+    FileUtils.mv source, dest, verbose: false
+  else
+    warning.call "File #{dest} already exists. Not overwriting"
+  end
+end
+
+end # tmpdir
