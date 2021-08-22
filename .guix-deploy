@@ -3,10 +3,10 @@
 echo === To test try
 echo alias gemma-wrapper="ruby bin/gemma-wrapper"
 echo gemma-wrapper --force --json \
-        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \
+        --loco -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
         -gk
 
-guix environment -C guix --ad-hoc ruby gemma parallel which vim less
+env GUIX_PACKAGE_PATH=~/guix-bioinformatics guix environment -C guix --ad-hoc ruby gemma-gn2 parallel which vim less

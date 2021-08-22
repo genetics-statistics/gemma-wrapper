@@ -8,11 +8,12 @@ Nat. Genet., 2016)](cfw.gif)
 ## Introduction
 
 Gemma-wrapper allows running GEMMA with LOCO, GEMMA with caching,
-GEMMA in parallel (now the default), and GEMMA on PBS. Gemma-wrapper
-is used to run GEMMA as part of the https://genenetwork.org/
-environment.
+GEMMA in parallel (now the default with LOCO), and GEMMA on
+PBS. Gemma-wrapper is used to run GEMMA as part of the
+https://genenetwork.org/ environment.
 
-Note that gemma-wrapper is projected to be integrated into gemma2/lib.
+Note that a version of gemma-wrapper is projected to be integrated
+into gemma itself.
 
 GEMMA is a software toolkit for fast application of linear mixed
 models (LMMs) and related models to genome-wide association studies
@@ -28,6 +29,12 @@ gemma-wrapper requires a recent version of GEMMA and essentially
 does a pass-through of all standard GEMMA invocation switches. On
 return gemma-wrapper can return a JSON object (--json) which is
 useful for web-services.
+
+## Performance
+
+LOCO runs in parallel by default. GEMMA without LOCO does not run in
+parallel by default.  Performance improvements with the parallel
+implementation can be viewed [here](./test/performance/releases.gmi).
 
 ## Installation
 
@@ -53,16 +60,19 @@ and it will render something like
 Usage: gemma-wrapper [options] -- [gemma-options]
         --permutate n                Permutate # times by shuffling phenotypes
         --permute-phenotypes filen   Phenotypes to be shuffled in permutations
-        --loco                       Run full LOCO
-        --chromosomes [1,2,...]      Chromosomes to scan
+        --loco                       Run full leave-one-chromosome-out (LOCO)
+        --chromosomes [1,2,3]        Run specific chromosomes
         --input filen                JSON input variables (used for LOCO)
         --cache-dir path             Use a cache directory
         --json                       Create output file in JSON format
-        --force                      Force computation
-        --slurm [options]            Submit to slurm PBS
+        --force                      Force computation (override cache)
+        --parallel                   Run jobs in parallel
+        --no-parallel                Do not run jobs in parallel
+        --slurm[=opts]               Use slurm PBS for submitting jobs
         --q, --quiet                 Run quietly
     -v, --verbose                    Run verbosely
-        --debug                      Show debug messages and keep intermediate output
+    -d, --debug                      Show debug messages and keep intermediate output
+        --dry-run                    Show commands, but don't execute
         --                           Anything after gets passed to GEMMA
 
     -h, --help                       display this help and exit

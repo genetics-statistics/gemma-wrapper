@@ -14,12 +14,12 @@ GEMMA wrapper example:
       gemma-wrapper -- \\
         -g test/data/input/BXD_geno.txt.gz \\
         -p test/data/input/BXD_pheno.txt \\
+        -a test/data/input/BXD_snps.txt \
         -gk
 
     LOCO K computation with caching and JSON output
 
-      gemma-wrapper --json \\
-        --loco -- \\
+      gemma-wrapper --json --loco -- \\
         -g test/data/input/BXD_geno.txt.gz \\
         -p test/data/input/BXD_pheno.txt \\
         -a test/data/input/BXD_snps.txt \\
@@ -77,7 +77,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, parallel: true }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, parallel: nil }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -115,6 +115,10 @@ opts = OptionParser.new do |o|
 
   o.on("--force", "Force computation (override cache)") do |q|
     options[:force] = true
+  end
+
+  o.on("--parallel", "Run jobs in parallel") do |b|
+    options[:parallel] = true
   end
 
   o.on("--no-parallel", "Do not run jobs in parallel") do |b|
@@ -244,13 +248,17 @@ if RUBY_VERSION =~ /^1/
   warning "runs on Ruby 2.x only\n"
 end
 
+# ---- LOCO defaults to parallel
+if options[:parallel] == nil
+  options[:parallel] = true if options[:loco]
+end
+
 debug.call(options) # some debug output
 debug.call(record)
 
 DO_COMPUTE_KINSHIP = gemma_args.include?("-gk")
 DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
 
-# ---- Set up parallel
 if options[:parallel]
   begin
     skip_cite = `echo "will cite" |parallel --citation`
