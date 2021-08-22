@@ -32,9 +32,11 @@ useful for web-services.
 
 ## Performance
 
-LOCO runs in parallel by default. GEMMA without LOCO does not run in
-parallel by default.  Performance improvements with the parallel
-implementation can be viewed [here](./test/performance/releases.gmi).
+LOCO runs in parallel by default which is at least a 5x performance
+improvement on a machine with enough cores. GEMMA without LOCO,
+however, does not run in parallel by default.  Performance
+improvements with the parallel implementation for LOCO and non-LOCO
+can be viewed [here](./test/performance/releases.gmi).
 
 ## Installation
 

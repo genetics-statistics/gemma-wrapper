@@ -1,0 +1,131 @@
+# Performance
+
+GEMMA computations are greatly sped up doing work by chromosome. This comes naturally to LOCO, but also works with non-LOCO LMMs. When using a multicore computer (here R7425 AMD EPYC 7551 2x 32-Core Processor 256GB RAM @2.5Ghz)
+
+* [X] Test parallel non-loco
+* [-] Compare outputs parallel and straight
+* [ ] Test parallel loco
+* [X] Compare outputs parallel and straight
+
+Note that for smaller datasets this parallelization won't help much.
+
+## Without LOCO
+
+Running data from the BXD mouse longevity study
+
+=> https://genenetwork.org/show_trait?trait_id=10001&dataset=BXD-LongevityPublish
+
+The first run is gemma computing the GRM
+
+```
+time ./bin/gemma -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt -gk
+GEMMA 0.99.0-pre1 (2021-08-11) by Xiang Zhou, Pjotr Prins and team (C) 2012-2021
+Reading Files ...
+## number of total individuals = 2478
+## number of analyzed individuals = 2426
+## number of covariates = 1
+## number of phenotypes = 1
+## number of total SNPs/var        =     7320
+## number of analyzed SNPs         =     7320
+Calculating Relatedness Matrix ...
+================================================== 100%
+**** INFO: Done.
+
+real    0m11.885s
+user    2m8.996s
+sys     1m37.685s
+```
+
+which shows pretty good core usage thanks to OpenBLAS! Next we run a univariate LMM
+
+```
+time ./bin/gemma -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt  -lmm 9 -k output/result.cXX.txt
+GEMMA 0.99.0-pre1 (2021-08-11) by Xiang Zhou, Pjotr Prins and team (C) 2012-2021
+Reading Files ...
+## number of total individuals = 2478
+## number of analyzed individuals = 2426
+## number of covariates = 1
+## number of phenotypes = 1
+## number of total SNPs/var        =     7320
+## number of analyzed SNPs         =     7320
+Start Eigen-Decomposition...
+**** WARNING: Matrix G has 2320 eigenvalues close to zero
+pve estimate =0.185793
+se(pve) =0.0361609
+================================================== 100%
+**** INFO: Done.
+
+real    0m18.936s
+user    4m14.313s
+sys     7m4.833s
+```
+
+Not too bad either!  Now run gemma-wrapper with the univariate LMM. First rerun
+K to create a JSON file:
+
+```
+time gemma-wrapper --json --force -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt -gk > K.json
+
+time gemma-wrapper --force --json --input K.json -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt  -lmm 9
+
+real     1m0.881s                                                                             user    21m15.052s                                                                           sys     94m59.754s
+```
+
+Impressive, but actually not an improvement. I need to check why the split version is slower.
+
+```
+time gemma-wrapper --json --loco --force -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt -gk > K.json
+
+real    0m25.904s
+user    21m13.221s
+sys     15m25.577s
+
+time gemma-wrapper --force --loco --json --input K.json -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt  -lmm 9
+
+real    0m59.074s
+user    21m44.833s
+sys     91m10.539s
+```
+
+Well, it is clear that there is a deterioration on IO with then non-LOCO version. In the gemma-wrapper we therefore default to non-parallel for non-LOCO until this is fixed.
+
+## With LOCO
+
+Without parallel
+
+```
+time gemma-wrapper --json --loco --no-parallel --force -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt -gk > K.json
+(da39a3ee5e6b4b0d3255bfef95601890afd80709)
+
+real    3m50.001s
+user    43m51.098s
+sys     32m24.687s
+
+time gemma-wrapper --force --json --loco --no-parallel --input K.json -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt  -lmm 9
+(45dae44a6f10712db82b3d76c4893a7b1c72d1f4)
+
+real    3m23.791s
+user    74m39.719s
+sys     130m31.009s
+```
+
+
+And with parallel
+
+```
+time gemma-wrapper --json --loco --force -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt -gk > K.json
+(da39a3ee5e6b4b0d3255bfef95601890afd80709)
+
+real    0m25.694s
+user    22m10.692s
+sys     13m24.033s
+
+time gemma-wrapper --force --json --loco --input K.json -- -no-check -g tmp/BXD-Longevity_geno.txt -p tmp/PHENO_qB67btGtCiyL2kIbGlF5jA.txt -a tmp/BXD-Longevity_snps.txt  -lmm 9
+(45dae44a6f10712db82b3d76c4893a7b1c72d1f4)
+
+real    1m5.400s
+user    21m54.462s
+sys     104m22.492s
+```
+
+The IO is still massive, but it is a 6x improvement on the non-parallel version.
