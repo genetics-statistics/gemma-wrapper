@@ -19,7 +19,7 @@ GEMMA wrapper example:
     LOCO K computation with caching and JSON output
 
       gemma-wrapper --json \\
-        --loco 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X -- \\
+        --loco -- \\
         -g test/data/input/BXD_geno.txt.gz \\
         -p test/data/input/BXD_pheno.txt \\
         -a test/data/input/BXD_snps.txt \\
@@ -77,7 +77,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, parallel: true }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, parallel: true }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -472,7 +472,11 @@ if DO_COMPUTE_KINSHIP
   end
 else
   # DO_COMPUTE_GWA
-  json_in = JSON.parse(File.read(options[:input]))
+  begin
+    json_in = JSON.parse(File.read(options[:input]))
+  rescue TypeError
+    raise "Missing JSON input file?"
+  end
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
   pfn = options[:permute_phenotypes] # can be nil
