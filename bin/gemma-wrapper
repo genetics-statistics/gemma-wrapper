@@ -194,6 +194,7 @@ warning = lambda do |*msg|
   record[:warnings].push *msg.join("")
   OUTPUT.print "WARNING: ",*msg,"\n"
 end
+
 info = lambda do |*msg|
   record[:debug].push *msg.join("") if options[:json] and options[:debug]
   OUTPUT.print *msg,"\n" if !options[:quiet]
@@ -552,7 +553,7 @@ if options[:parallel]
   cmd = parallel_cmds.join("\\n")
 
   cmd = "echo -e \"#{cmd}\""
-  err = execute.call(cmd+"|parallel") # all jobs in parallel
+  err = execute.call(cmd+"|parallel") # first try optimistically to run all jobs in parallel
   if err != 0
     [16,8,4,1].each do |jobs|
       info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")

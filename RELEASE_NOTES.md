@@ -1,3 +1,7 @@
+## ChangeLog v0.99.4 (2021xxxx)
+
+* Fixed problem of incomplete cache files
+
 ## ChangeLog v0.99.3 (20210822)
 
 * Fetch chromosome names from the annotation file - working of --loco switch changed!
