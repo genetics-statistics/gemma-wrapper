@@ -71,6 +71,8 @@ require 'optparse'
 require 'tempfile'
 require 'tmpdir'
 
+require 'lock'
+
 split_at = ARGV.index('--')
 
 if split_at
@@ -216,14 +218,14 @@ GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins
 info.call GEMMA_K_BANNER
 
 # Check gemma version
-GEMMA_COMMAND=options[:gemma_command]
-info.call "NOTE: gemma-wrapper is soon to be replaced by gemma2/lib"
-
 begin
-  GEMMA_INFO = `#{GEMMA_COMMAND}`
+  gemma_command2 = options[:gemma_command]
+  info.call "NOTE: gemma-wrapper is soon to be replaced by gemma2/lib"
+
+  GEMMA_INFO = `#{gemma_command2}`
 rescue Errno::ENOENT
-  GEMMA_COMMAND = "gemma" if not GEMMA_COMMAND
-  error.call "<#{GEMMA_COMMAND}> command not found"
+  gemma_command2 = "gemma"
+  error.call "<#{gemma_command2}> command not found"
 end
 
 gemma_version_header = GEMMA_INFO.split("\n").grep(/GEMMA|Version/)[0].strip
@@ -330,6 +332,12 @@ end
 HASH = compute_hash.call()
 options[:hash] = HASH
 
+at_exit do
+  Lock.release(HASH)
+end
+
+Lock.create(HASH) # this will wait for a lock to expire
+
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
@@ -353,7 +361,7 @@ hashme =
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
 invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
-  cmd = "#{GEMMA_COMMAND} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  cmd = "#{gemma_command2} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
   record[:gemma_command] = cmd
   return if cache_hit
   if options[:slurm]
