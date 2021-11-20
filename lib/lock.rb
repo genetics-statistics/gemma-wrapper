@@ -12,7 +12,7 @@ The logic is as follows:
 5. when the pid disappears or the lock file - continue
 6. a timeout will return an error in 3 minutes
 
-Note that there is a theoretical chance the lock file existed, but disappeared.
+Note that there is a theoretical chance the lock file existed, but disappeared. I think I have it covered by ignoring the unlink errors. Also the use of /proc/PID is Linux specific.
 
 =end
 
