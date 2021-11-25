@@ -1,5 +1,5 @@
 
-## ChangeLog v0.99.4 (2021xxxx)
+## ChangeLog v0.99.4 (20211125)
 
 * Fixed problem of incomplete cache files by introducing `parallel --joblog`
 * Adding locking so the exact same command does not run twice - with a risk of overwriting output files
