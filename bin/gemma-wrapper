@@ -338,6 +338,8 @@ end
 
 Lock.create(HASH) # this will wait for a lock to expire
 
+joblog = options[:cache_dir]+"/"+HASH+"-parallel.log"
+
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
@@ -561,15 +563,17 @@ if options[:parallel]
   cmd = parallel_cmds.join("\\n")
 
   cmd = "echo -e \"#{cmd}\""
-  err = execute.call(cmd+"|parallel") # first try optimistically to run all jobs in parallel
+  err = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
   if err != 0
     [16,8,4,1].each do |jobs|
       info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
-      err = execute.call(cmd+"|parallel -j #{jobs}")
+      err = execute.call(cmd+"|parallel -j #{jobs} --resume --joblog #{joblog}")
       break if err == 0
     end
     if err != 0
       info.call("Run failed!")
+      # Remove remaining files
+      FileUtils.rm_rf("#{tmpdir}/*", secure: true)
       exit err
     end
   end
