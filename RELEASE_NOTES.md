@@ -1,3 +1,6 @@
+## ChangeLog v0.99.5
+
+* Move parallel joblog out of the way after a run
 
 ## ChangeLog v0.99.4 (20211125)
 

@@ -574,10 +574,12 @@ if options[:parallel]
       info.call("Run failed!")
       # Remove remaining files
       FileUtils.rm_rf("#{tmpdir}/*", secure: true)
+      FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
       exit err
     end
   end
   info.call("Run successful!")
+  FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
 end
 json_out.call
 
