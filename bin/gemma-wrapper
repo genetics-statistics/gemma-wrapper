@@ -4,7 +4,7 @@
 # Author:: Pjotr Prins
 # License:: GPL3
 #
-# Copyright (C) 2017-2021 Pjotr Prins <pjotr.prins@thebird.nl>
+# Copyright (C) 2017-2022 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "
 GEMMA wrapper example:
@@ -64,6 +64,7 @@ if not gemma_command
   end
 end
 
+hashme = nil
 
 require 'digest/sha1'
 require 'fileutils'
@@ -214,13 +215,13 @@ end
 # ---- Start banner
 
 GEMMA_K_VERSION=version
-GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017-2021\n"
+GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017-2022\n"
 info.call GEMMA_K_BANNER
 
 # Check gemma version
 begin
   gemma_command2 = options[:gemma_command]
-  info.call "NOTE: gemma-wrapper is soon to be replaced by gemma2/lib"
+  info.call "NOTE: gemma-wrapper is soon to be replaced"
 
   GEMMA_INFO = `#{gemma_command2}`
 rescue Errno::ENOENT
@@ -279,7 +280,6 @@ raise "Expected GEMMA -a genotype file switch" if anno_idx == nil
 CHROMOSOMES = get_chromosomes(gemma_args[anno_idx+1])
 
 # ---- Compute HASH on inputs
-hashme = []
 geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
 pheno_idx = gemma_args.index '-p'
@@ -309,14 +309,15 @@ execute = lambda { |cmd|
 
 compute_hash = lambda do | phenofn = nil |
   # Compute a HASH on the inputs
-  debug.call "Hashing on ",hashme,"\n"
+  error.call "Hash is empty" if hashme == nil or hashme == []
+  debug.call "Hashing on ",hashme," before phenofn inject"
   hashes = []
   hm = if phenofn
          hashme + ["-p", phenofn]
        else
          hashme
        end
-  debug.call(hm)
+  debug.call("Hashing on ",hm)
   hm.each do | item |
     if File.file?(item)
       hashes << Digest::SHA1.hexdigest(File.read(item))
@@ -328,6 +329,18 @@ compute_hash = lambda do | phenofn = nil |
   debug.call(hashes)
   Digest::SHA1.hexdigest hashes.join(' ')
 end
+
+error.call "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
+error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
+GEMMA_ARGS_HASH = gemma_args.dup # do not include outdir
+
+hashme =
+  if DO_COMPUTE_KINSHIP and pheno_idx != nil
+    # Remove the phenotype file from the hash for GRM computation
+    GEMMA_ARGS_HASH[0..pheno_idx-1] + GEMMA_ARGS_HASH[pheno_idx+2..-1]
+  else
+    GEMMA_ARGS_HASH
+  end
 
 HASH = compute_hash.call()
 options[:hash] = HASH
@@ -345,20 +358,9 @@ FileUtils::mkdir_p options[:cache_dir]
 
 Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
 
-error.call "Do not use the GEMMA -o switch!" if gemma_args.include? '-o'
-error.call "Do not use the GEMMA -outdir switch!" if gemma_args.include? '-outdir'
-GEMMA_ARGS_HASH = gemma_args.dup # do not include outdir
 gemma_args << '-outdir'
 gemma_args << tmpdir
 GEMMA_ARGS = gemma_args
-
-hashme =
-  if DO_COMPUTE_KINSHIP and pheno_idx != nil
-    # Remove the phenotype file from the hash for GRM computation
-    GEMMA_ARGS_HASH[0..pheno_idx-1] + GEMMA_ARGS_HASH[pheno_idx+2..-1]
-  else
-    GEMMA_ARGS_HASH
-  end
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
