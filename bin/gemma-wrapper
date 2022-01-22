@@ -562,22 +562,30 @@ end
 # ---- Invoke parallel
 if options[:parallel]
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
-  cmd = parallel_cmds.join("\\n")
 
-  cmd = "echo -e \"#{cmd}\""
-  err = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
-  if err != 0
-    [16,8,4,1].each do |jobs|
-      info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
-      err = execute.call(cmd+"|parallel -j #{jobs} --resume --joblog #{joblog}")
-      break if err == 0
+  Tempfile.open("commands.txt") do |f|
+    cmdfn = f.path
+    File.open(cmdfn,"w") do |f|
+      parallel_cmds.each do |c|
+        f.puts(c)
+      end
     end
+    cmd = "cat \"#{cmdfn}\""
+    err = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
-      info.call("Run failed!")
-      # Remove remaining files
-      FileUtils.rm_rf("#{tmpdir}/*", secure: true)
-      FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
-      exit err
+      [16,8,4,1].each do |jobs|
+        info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
+        err = execute.call(cmd+"|parallel -j #{jobs} --resume --joblog #{joblog}")
+        break if err == 0
+      end
+      if err != 0
+        info.call("Parallel run failed!")
+        debug.call("Job log is: ",File.read(joblog))
+        # Remove remaining files
+        FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
+        FileUtils.rm_rf("#{tmpdir}/*", secure: true)
+        exit err
+      end
     end
   end
   info.call("Run successful!")

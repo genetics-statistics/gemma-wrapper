@@ -1,3 +1,9 @@
+## ChangeLog v0.99.6
+
+* Fixed bug that had creeped in and always returned the same hash for all runs (terrible)
+* Zoomed in on tests to make sure this won't happen again
+* Found another potential disaster with too long a command line for parallel jobs
+
 ## ChangeLog v0.99.5
 
 * Move parallel joblog out of the way after a run
