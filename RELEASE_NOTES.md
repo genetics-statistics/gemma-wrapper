@@ -1,4 +1,6 @@
-## ChangeLog v0.99.6
+## ChangeLog v0.99.6 (20220122)
+
+Important bug fix release!!
 
 * Fixed bug that had creeped in and always returned the same hash for all runs (terrible)
 * Zoomed in on tests to make sure this won't happen again
