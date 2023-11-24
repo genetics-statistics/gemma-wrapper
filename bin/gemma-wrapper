@@ -4,7 +4,7 @@
 # Author:: Pjotr Prins
 # License:: GPL3
 #
-# Copyright (C) 2017-2022 Pjotr Prins <pjotr.prins@thebird.nl>
+# Copyright (C) 2017-2023 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "
 GEMMA wrapper example:
@@ -272,6 +272,9 @@ if options[:parallel]
     error.call "<parallel> command not found"
   end
   parallel_cmds = []
+  if not options[:json]
+    error.call "<parallel> needs --json switch"
+  end
 end
 
 # ---- Fetch chromosomes from SNP annotation file
@@ -573,7 +576,7 @@ if options[:parallel]
     cmd = "cat \"#{cmdfn}\""
     err = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
-      [16,8,4,1].each do |jobs|
+      [4,1].each do |jobs|
         info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
         err = execute.call(cmd+"|parallel -j #{jobs} --resume --joblog #{joblog}")
         break if err == 0

@@ -7,6 +7,7 @@ Gem::Specification.new do |s|
   s.email       = 'pjotr.public01@thebird.nl'
   s.files       = ["bin/gemma-wrapper",
                    "lib/lock.rb",
+                   "Rakefile",
                    "Gemfile",
                    "LICENSE.txt",
                    "README.md",

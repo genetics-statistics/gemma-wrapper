@@ -247,4 +247,4 @@ ruby bin/gemma-wrapper --help
 
 ## Copyright
 
-Copyright (c) 2017-2021 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
+Copyright (c) 2017-2023 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
