@@ -484,16 +484,25 @@ if LOCO
   end
 end
 
+create_archive = true
+
 if DO_COMPUTE_KINSHIP
   # compute K
-  info.call CHROMOSOMES
-  if LOCO
-    CHROMOSOMES.each do |chr|
-      info.call "LOCO for ",chr
-      kinship.call(chr)
-    end
+
+  info.call "Cached archive #{ARCHIVE} for K exists!"
+  if File.exist? ARCHIVE and not options[:force]
+    info.call "Cached archive #{ARCHIVE} for K exists!"
+    create_archive = false
   else
-    kinship.call # no LOCO
+    info.call CHROMOSOMES
+    if LOCO
+      CHROMOSOMES.each do |chr|
+        info.call "LOCO for ",chr
+        kinship.call(chr)
+      end
+    else
+      kinship.call # no LOCO
+    end
   end
 else
   # DO_COMPUTE_GWA
@@ -595,14 +604,16 @@ if options[:parallel]
   info.call("Run successful!")
   FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
 end
-json_out.call
 
-info.call `tar -cvJf #{ARCHIVE} -C #{tmpdir} .`
+if create_archive
+  info.call `tar -cvJf #{ARCHIVE} -C #{tmpdir} .`
+end
 
+if false
 # note we built in a special dir.
 # Now copy output files to the cache_dir.
 # If a file exists only emit a warning
-Dir.glob("*.xz", base: tmpdir) do | fn |
+Dir.glob("*.txt", base: tmpdir) do | fn |
   source = tmpdir + "/" + fn
   dest = options[:cache_dir] + "/" + fn
   if not File.exist?(dest) or options[:force]
@@ -612,5 +623,10 @@ Dir.glob("*.xz", base: tmpdir) do | fn |
     warning.call "File #{dest} already exists. Not overwriting"
   end
 end
+end
+
+record[:archive_GRM] = ARCHIVE
+
+json_out.call
 
 end # tmpdir
