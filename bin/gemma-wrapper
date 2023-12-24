@@ -354,6 +354,7 @@ end
 
 Lock.create(HASH) # this will wait for a lock to expire
 
+ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
 joblog = options[:cache_dir]+"/"+HASH+"-parallel.log"
 
 # Create cache dir
@@ -596,7 +597,7 @@ if options[:parallel]
 end
 json_out.call
 
-info.call `tar -cvJf #{options[:cache_dir]}/#{HASH}.tar.xz -C #{tmpdir} .`
+info.call `tar -cvJf #{ARCHIVE} -C #{tmpdir} .`
 
 # note we built in a special dir.
 # Now copy output files to the cache_dir.
