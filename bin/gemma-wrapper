@@ -596,7 +596,9 @@ if options[:parallel]
 end
 json_out.call
 
-# copy all output files to the cache_dir. If a file exists only emit a warning
+# note we built in a special dir.
+# Now copy all output files to the cache_dir.
+# If a file exists only emit a warning
 Dir.glob("*.txt", base: tmpdir) do | fn |
   source = tmpdir + "/" + fn
   dest = options[:cache_dir] + "/" + fn

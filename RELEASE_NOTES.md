@@ -1,3 +1,8 @@
+## ChangeLog v0.99.7 ()
+
+* Less aggressive trials of parallel compute - should really scale to size
+* Check for JSON switch
+
 ## ChangeLog v0.99.6 (20220122)
 
 Important bug fix release!!
