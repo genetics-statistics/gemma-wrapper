@@ -354,7 +354,6 @@ end
 
 Lock.create(HASH) # this will wait for a lock to expire
 
-ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
 JOBLOG  = HASH+"-parallel.log"
 
 # Create cache dir
@@ -479,6 +478,7 @@ gwas = lambda do | chr, kfn, pfn, permutation=0 |
   hash = compute_hash.call(pfn)
   hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
   if not cache_hit
+    create_archive = true
     args = [ '-k', kfn, '-o', hashi ]
     args << [ '-loco', chr ] if chr != nil
     args << [ '-p', pfn ] if pfn
@@ -495,6 +495,7 @@ end
 
 if DO_COMPUTE_KINSHIP
   # compute K
+  ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
 
   info.call "Unpack archive #{ARCHIVE}!"
   # if File.exist? ARCHIVE and not options[:force]
@@ -514,6 +515,7 @@ if DO_COMPUTE_KINSHIP
   # end
 else
   # DO_COMPUTE_GWA
+  ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
   begin
     json_in = JSON.parse(File.read(options[:input]))
   rescue TypeError
@@ -521,16 +523,22 @@ else
   end
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
+  # ---- Unpack archive
+  if json_in["archive_GRM"]
+    archive_grm = json_in["archive_GRM"]
+    info.call `tar xJf #{archive_grm} -C #{tmpdir}`
+  end
+
   pfn = options[:permute_phenotypes] # can be nil
   if LOCO
     k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
     k_files.each do | chr, kfn | # call a GWA for each chromosome
-      gwas.call(chr,kfn,pfn)
+      gwas.call(chr,tmpdir+"/"+kfn,pfn)
     end
   else
     kfn = json_in["files"][0][2]
     CHROMOSOMES.each do | chr |
-      gwas.call(chr,kfn,pfn)
+      gwas.call(chr,tmpdir+"/"+kfn,pfn)
     end
   end
   # Permute
@@ -604,8 +612,8 @@ if options[:parallel]
         info.call("Parallel run failed!")
         debug.call("Job log is: ",File.read(joblog))
         # Remove remaining files
-        FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
-        FileUtils.rm_rf("#{tmpdir}/*", secure: true)
+        # FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
+        # FileUtils.rm_rf("#{tmpdir}/*", secure: true)
         exit err
       end
     end
@@ -615,6 +623,9 @@ if options[:parallel]
 end
 
 if create_archive
+  if not DO_COMPUTE_KINSHIP
+    info.call `rm -f #{tmpdir}/*cXX*`
+  end
   info.call "Creating archive #{ARCHIVE}..."
   info.call `tar -cvJf #{ARCHIVE} -C #{tmpdir} .`
 end
