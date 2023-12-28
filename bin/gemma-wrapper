@@ -497,25 +497,26 @@ if DO_COMPUTE_KINSHIP
   # compute K
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
 
-  info.call "Unpack archive #{ARCHIVE}!"
-  # if File.exist? ARCHIVE and not options[:force]
-  #   info.call "Cached archive #{ARCHIVE} for K exists!"
-  #   create_archive = false
-  # else
-  info.call `tar xJf #{ARCHIVE} -C #{tmpdir}`
-    info.call CHROMOSOMES
-    if LOCO
-      CHROMOSOMES.each do |chr|
-        info.call "LOCO for ",chr
-        kinship.call(chr)
-      end
-    else
-      kinship.call # no LOCO
+  if File.exist? ARCHIVE and not options[:force]
+    info.call "Unpack archive #{ARCHIVE}!"
+    info.call `tar xJf #{ARCHIVE} -C #{tmpdir}`
+  end
+  info.call CHROMOSOMES
+  if LOCO
+    CHROMOSOMES.each do |chr|
+      info.call "LOCO for ",chr
+      kinship.call(chr)
     end
-  # end
+  else
+    kinship.call # no LOCO
+  end
 else
   # DO_COMPUTE_GWA
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
+  if File.exist? ARCHIVE and not options[:force]
+    info.call "Unpack archive #{ARCHIVE}!"
+    info.call `tar xJf #{ARCHIVE} -C #{tmpdir}`
+  end
   begin
     json_in = JSON.parse(File.read(options[:input]))
   rescue TypeError
