@@ -355,7 +355,7 @@ end
 Lock.create(HASH) # this will wait for a lock to expire
 
 ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
-joblog = options[:cache_dir]+"/"+HASH+"-parallel.log"
+JOBLOG  = HASH+"-parallel.log"
 
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
@@ -583,6 +583,7 @@ end
 # ---- Invoke parallel
 if options[:parallel]
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
+  joblog = tmpdir+"/"+JOBLOG
 
   Tempfile.open("commands.txt") do |f|
     cmdfn = f.path
@@ -610,7 +611,7 @@ if options[:parallel]
     end
   end
   info.call("Run successful!")
-  FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
+  # FileUtils.mv joblog, tmpdir+"/"+joblog+".bak", verbose: false, force: true
 end
 
 if create_archive
