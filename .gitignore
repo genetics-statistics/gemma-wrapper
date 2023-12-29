@@ -1,4 +1,6 @@
 *.gem
+*.mdb
+*.mdb-lock
 *.rbc
 *.json
 /.config

@@ -9,4 +9,5 @@ echo gemma-wrapper --force --json \
         -a test/data/input/BXD_snps.txt \
         -gk
 
-guix shell -L ~/guix-bioinformatics -C coreutils binutils ruby gemma-gn2 parallel which vim less xz tar
+# using Ruby2 because lmdb ext builder picks that
+guix shell -L ~/guix-bioinformatics -C coreutils binutils ruby gemma-gn2 parallel which vim less xz tar python python-lmdb python-cffi
