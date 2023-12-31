@@ -45,6 +45,7 @@ GEMMA_V_MINOR = 4
 
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
+BIN = File.join(basepath,'bin')
 
 VERSION_FILENAME=File.join(basepath,'VERSION')
 version = File.new(VERSION_FILENAME).read.chomp
@@ -499,7 +500,7 @@ if DO_COMPUTE_KINSHIP
 
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    info.call `tar xJf #{ARCHIVE} -C #{tmpdir}`
+    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   info.call CHROMOSOMES
   if LOCO
@@ -515,7 +516,7 @@ else
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    info.call `tar xJf #{ARCHIVE} -C #{tmpdir}`
+    execture.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   begin
     json_in = JSON.parse(File.read(options[:input]))
@@ -527,7 +528,7 @@ else
   # ---- Unpack archive
   if json_in["archive_GRM"]
     archive_grm = json_in["archive_GRM"]
-    info.call `tar xJf #{archive_grm} -C #{tmpdir}`
+    execute.call "tar xJf #{archive_grm} -C #{tmpdir}"
   end
 
   pfn = options[:permute_phenotypes] # can be nil
@@ -624,30 +625,16 @@ if options[:parallel]
 end
 
 if create_archive
-  if not DO_COMPUTE_KINSHIP
-    info.call `rm -f #{tmpdir}/*cXX*`
+  if DO_COMPUTE_GWA
+    LMDB = tmpdir+"/"+HASH+'.mdb'
+    # create lmdb database - we call out into a python script for that
+    execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} #{tmpdir}/*assoc.txt"
+    # sleep 10_000
+    execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
   end
   info.call "Creating archive #{ARCHIVE}..."
-  info.call `tar -cvJf #{ARCHIVE} -C #{tmpdir} .`
+  execute.call "tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
-
-if false
-# note we built in a special dir.
-# Now copy output files to the cache_dir.
-# If a file exists only emit a warning
-Dir.glob("*.txt", base: tmpdir) do | fn |
-  source = tmpdir + "/" + fn
-  dest = options[:cache_dir] + "/" + fn
-  if not File.exist?(dest) or options[:force]
-    info.call "Move #{source} to #{dest}"
-    FileUtils.mv source, dest, verbose: false
-  else
-    warning.call "File #{dest} already exists. Not overwriting"
-  end
-end
-end
-
-# record[:type] = "K"
 
 end # tmpdir
 

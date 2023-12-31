@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 #
-#
 # Note that the chr+position is used in the key where position is
 # stored big-endian to allow for proper sorting(!) X and Y chromosomes
 # are stored as their ASCII value (88 and 89(.
@@ -18,7 +17,7 @@ import lmdb
 from struct import *
 
 parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lmdb db.')
-parser.add_argument('--db',default="gemma",help="DB name")
+parser.add_argument('--db',default="gemma.mdb",help="DB name")
 parser.add_argument('files',nargs='*',help="GEMMA file(s)")
 args = parser.parse_args()
 
@@ -31,7 +30,9 @@ meta = { "type": "gemma-assoc",
          "key-format": ">cL",
          "rec-format": "=ffff" }
 log = {}
-with lmdb.open(args.db+".mdb",subdir=False) as env:
+hits = {}
+
+with lmdb.open(args.db,subdir=False) as env:
     for fn in args.files:
         print(f"Processing {fn}...")
         if "log" in fn:
