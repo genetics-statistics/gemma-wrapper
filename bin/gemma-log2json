@@ -1,0 +1,57 @@
+#! /usr/bin/env ruby
+#
+# Pass GEMMA log files in and outputs a JSON record.
+
+require 'json'
+
+meta = {}
+
+compute = {}
+
+date = nil
+samples = nil
+covariates = nil
+phenotypes = nil
+total_markers = nil
+markers = nil
+
+
+def to_fs s
+  s.strip.split(/\s+/).map { |i| i.to_f }
+end
+
+ARGV.each do |fn|
+  fn =~ /\.(\S+)\.assoc\./
+  chr = $1
+  # p $1
+  comp = {}
+  File.readlines(fn, chomp: true).each do |line|
+    comp[:logfn] = fn
+    samples = $1.to_i if line =~ /number of analyzed individuals = (\d+)/
+    covariates = $1.to_i if line =~ /number of covariates = (\d+)/
+    phenotypes = $1.to_i if line =~ /number of phenotypes = (\d+)/
+    total_markers = $1.to_i if line =~ /number of total SNPs\/var = (\d+)/
+    markers = $1.to_i if line =~ /number of analyzed SNPs\/var = (\d+)/
+    date = $1 if line =~ /Date = (.+)/
+    comp[:time] = $1.to_f if line =~ /total computation time = (\S+)/
+    comp[:remle] = $1.to_f if line =~ /REMLE log-likelihood in the null model = (\S+)/
+    comp[:mle] = $1.to_f if line =~ /MLE log-likelihood in the null model = (\S+)/
+    comp[:pve] = $1.to_f if line =~ /pve estimate in the null model = (\S+)/
+    comp[:se] = $1.to_f if line =~ /se\(pve\) in the null model = (\S+)/
+    comp[:vg] = $1.to_f if line =~ /vg estimate in the null model = (\S+)/
+    comp[:ve] = $1.to_f if line =~ /ve estimate in the null model = (\S+)/
+    comp[:beta] = to_fs($1) if line =~ /beta estimate in the null model = (.+)/
+    comp[:se_beta] = to_fs($1) if line =~ /se\(beta\) = (.+)/
+
+  end
+  compute[chr] = comp
+end
+
+meta[:compute] = compute
+meta[:date] = date
+meta[:samples] = samples
+meta[:covariates] = covariates
+meta[:phenotypes] = phenotypes
+meta[:total_markers] = total_markers
+meta[:markers] = markers
+print meta.to_json
