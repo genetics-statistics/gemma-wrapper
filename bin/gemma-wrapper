@@ -71,6 +71,7 @@ require 'digest/sha1'
 require 'fileutils'
 require 'optparse'
 require 'tempfile'
+require 'time'
 require 'tmpdir'
 
 require 'lock'
@@ -98,6 +99,14 @@ opts = OptionParser.new do |o|
 
   o.on('--loco', 'Run full leave-one-chromosome-out (LOCO)') do |b|
     options[:loco] = b
+  end
+
+  o.on('--name NAME', 'Add dataset identifier to metadata') do |n|
+    options[:name] = n
+  end
+
+  o.on('--trait TRAIT', 'Add trait identifier to metadata') do |n|
+    options[:trait] = n
   end
 
   o.on('--chromosomes [1,2,3]',Array,'Run specific chromosomes') do |lst|
@@ -174,6 +183,10 @@ opts.parse!(ARGV)
 OUTPUT = (options[:json] ? $stderr : $stdout )
 
 record = { warnings: [], errno: 0, debug: [] }
+record[:name] = options[:name] if options[:name]
+record[:trait] = options[:trait] if options[:trait]
+d = DateTime.now
+record[:time] = d.strftime("%Y/%m/%d %H:%M")
 
 require 'json'
 
@@ -254,7 +267,7 @@ if options[:show_help] or gemma_args == nil
 end
 
 if RUBY_VERSION =~ /^1/
-  warning "runs on Ruby 2.x only\n"
+  warning "does not run on Ruby 1.x\n"
 end
 
 # ---- LOCO defaults to parallel
@@ -644,13 +657,16 @@ if create_archive
     meta = {
       type: "gemma-wrapper",
       version: version,
+      name: options[:name],
+      trait: options[:trait],
+      url: "https://genenetwork.org/show_trait?trait_id="+options[:trait]+"&dataset="+options[:name],
       archive_GRM: json_in["archive"],
       archive_GWA: File.basename(ARCHIVE)
     }
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,meta.to_json)
     # sleep 10_000
-    File.unlink(LMDB) # removed any cached lmdb
+    File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
     execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     if not options[:keep]
       execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
