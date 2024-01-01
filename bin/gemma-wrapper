@@ -178,7 +178,7 @@ record = { warnings: [], errno: 0, debug: [] }
 require 'json'
 
 json_out = lambda do
-  print record.to_json if options[:json]
+  record.to_json if options[:json]
 end
 
 # ---- Some error handlers
@@ -650,6 +650,7 @@ if create_archive
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,meta.to_json)
     # sleep 10_000
+    File.unlink(LMDB) # removed any cached lmdb
     execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     if not options[:keep]
       execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
@@ -664,4 +665,4 @@ end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 
-json_out.call
+print json_out.call

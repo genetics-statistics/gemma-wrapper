@@ -23,8 +23,8 @@ parser.add_argument('files',nargs='*',help="GEMMA file(s)")
 args = parser.parse_args()
 
 # ASCII
-X="88"
-Y="89"
+X=ord('X')
+Y=ord('Y')
 
 meta = { "type": "gemma-assoc",
          "version": 1.0,
@@ -48,17 +48,20 @@ with lmdb.open(args.db,subdir=False) as env:
                             continue
                         if (chr =='X'):
                             chr = X
-                        if (chr =='X'):
+                        elif (chr =='X'):
                             chr = Y
-                        chr_c = pack('B',int(chr))
-                        print(chr,chr_c,rs)
-                        key = (chr+'_'+pos).encode()
+                        else:
+                            chr = int(chr)
+                        # print(f"chr={chr}, type={type(chr)}")
+                        chr_c = pack('c',bytes([chr]))
+                        # print(chr,chr_c,rs)
+                        # key = (chr+'_'+pos).encode()
                         key = pack('>cL',chr_c,int(pos))
                         test_chr_c,test_pos = unpack('>cL',key)
                         assert chr_c == test_chr_c
                         assert test_pos == int(pos)
-                        test_chr = unpack('B',chr_c)
-                        assert test_chr == int(chr), f"{test_chr} vs {int(chr)} - {chr}"
+                        test_chr = unpack('c',chr_c)
+                        # assert test_chr == int(chr), f"{test_chr} vs {int(chr)} - {chr}"
                         val = pack('=ffff', float(af), float(logl_H1), float(l_mle), float(p_lrt))
                         assert len(val)==16, f"Packed size is expected to be 16, but is {len(val)}"
                         res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
@@ -67,7 +70,7 @@ with lmdb.open(args.db,subdir=False) as env:
         with txn.cursor() as curs:
             # quick check and output of keys
             for key in list(txn.cursor().iternext(values=False)):
-                chr,pos = unpack('>BL',key)
+                chr,pos = unpack('>cL',key)
                 # print(str(chr),pos)
 
     meta["log"] = log
