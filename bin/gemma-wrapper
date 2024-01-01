@@ -121,6 +121,10 @@ opts = OptionParser.new do |o|
     options[:force] = true
   end
 
+  o.on("--keep", "Keep intermediate files in output") do |q|
+    options[:keep] = true
+  end
+
   o.on("--parallel", "Run jobs in parallel") do |b|
     options[:parallel] = true
   end
@@ -308,6 +312,11 @@ execute = lambda { |cmd|
     $stderr.print `#{cmd}`
     err = $?.to_i
   end
+  if err != 0
+    $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
+    # sleep 10_000
+    exit err
+  end
   err
 }
 
@@ -494,6 +503,8 @@ if LOCO
   end
 end
 
+json_in = nil
+
 if DO_COMPUTE_KINSHIP
   # compute K
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
@@ -516,7 +527,7 @@ else
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execture.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   begin
     json_in = JSON.parse(File.read(options[:input]))
@@ -526,8 +537,8 @@ else
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
   # ---- Unpack archive
-  if json_in["archive_GRM"]
-    archive_grm = json_in["archive_GRM"]
+  if json_in["archive"]
+    archive_grm = options[:cache_dir]+"/"+json_in["archive"]
     execute.call "tar xJf #{archive_grm} -C #{tmpdir}"
   end
 
@@ -624,20 +635,33 @@ if options[:parallel]
   # FileUtils.mv joblog, tmpdir+"/"+joblog+".bak", verbose: false, force: true
 end
 
+meta = {}
 if create_archive
   if DO_COMPUTE_GWA
     LMDB = tmpdir+"/"+HASH+'.mdb'
-    # create lmdb database - we call out into a python script for that
-    execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} #{tmpdir}/*assoc.txt"
+    # create lmdb database - we call out into a python script for that.
+    # first create a JSON record
+    meta = {
+      type: "gemma-wrapper",
+      version: version,
+      archive_GRM: json_in["archive"],
+      archive_GWA: File.basename(ARCHIVE)
+    }
+    metafn = tmpdir+"/"+HASH+"-meta.json"
+    File.write(metafn,meta.to_json)
     # sleep 10_000
-    execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
+    execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
+    if not options[:keep]
+      execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
+    end
   end
+  File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
   info.call "Creating archive #{ARCHIVE}..."
   execute.call "tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
 
 end # tmpdir
 
-record[:archive_GRM] = ARCHIVE
+record[:archive] = File.basename(ARCHIVE)
 
 json_out.call

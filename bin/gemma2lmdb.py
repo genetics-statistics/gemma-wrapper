@@ -18,6 +18,7 @@ from struct import *
 
 parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lmdb db.')
 parser.add_argument('--db',default="gemma.mdb",help="DB name")
+parser.add_argument('--meta',required=False,help="JSON meta file name")
 parser.add_argument('files',nargs='*',help="GEMMA file(s)")
 args = parser.parse_args()
 
@@ -53,10 +54,15 @@ with lmdb.open(args.db,subdir=False) as env:
                         print(chr,chr_c,rs)
                         key = (chr+'_'+pos).encode()
                         key = pack('>cL',chr_c,int(pos))
+                        test_chr_c,test_pos = unpack('>cL',key)
+                        assert chr_c == test_chr_c
+                        assert test_pos == int(pos)
+                        test_chr = unpack('B',chr_c)
+                        assert test_chr == int(chr), f"{test_chr} vs {int(chr)} - {chr}"
                         val = pack('=ffff', float(af), float(logl_H1), float(l_mle), float(p_lrt))
                         assert len(val)==16, f"Packed size is expected to be 16, but is {len(val)}"
                         res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
-                        assert res,f"Failed to update lmdb record with key {key} -- probably a duplicate"
+                        assert res,f"Failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})"
     with env.begin() as txn:
         with txn.cursor() as curs:
             # quick check and output of keys
