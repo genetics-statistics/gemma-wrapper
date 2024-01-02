@@ -70,6 +70,7 @@ hashme = nil
 require 'digest/sha1'
 require 'fileutils'
 require 'optparse'
+require 'open3'
 require 'tempfile'
 require 'time'
 require 'tmpdir'
@@ -312,25 +313,28 @@ end
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
   err = 0
-  if not options[:debug]
-    # send output to stderr line by line
-    IO.popen("#{cmd}") do |io|
-      while s = io.gets
+  stats = {}
+  Open3.popen3("time -v #{cmd}") do |stdin,stdout,stderr,wait_thr|
+    if options[:debug]
+      while s = stdout.gets
         $stderr.print s
       end
-      io.close
-      err = $?.to_i
     end
-  else
-    $stderr.print `#{cmd}`
-    err = $?.to_i
+    while s = stderr.gets
+
+      $stderr.print s
+    end
+    stdin.close
+    stdout.close
+    stderr.close
+    err = wait_thr.value
   end
-  if err != 0
+  if err and err != 0
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     # sleep 10_000
     exit err
   end
-  err
+  return err,stats
 }
 
 compute_hash = lambda do | phenofn = nil |
@@ -421,7 +425,7 @@ srun #{cmd}
         info.call("Add parallel job: ",cmd)
         parallel_cmds << cmd
       else
-        err = execute.call(cmd)
+        err,stats = execute.call(cmd)
       end
       err
     else
@@ -524,7 +528,7 @@ if DO_COMPUTE_KINSHIP
 
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   info.call CHROMOSOMES
   if LOCO
@@ -540,7 +544,7 @@ else
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   begin
     json_in = JSON.parse(File.read(options[:input]))
@@ -552,7 +556,7 @@ else
   # ---- Unpack archive
   if json_in["archive"]
     archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-    execute.call "tar xJf #{archive_grm} -C #{tmpdir}"
+    execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{tmpdir}"
   end
 
   pfn = options[:permute_phenotypes] # can be nil
@@ -627,7 +631,7 @@ if options[:parallel]
       end
     end
     cmd = "cat \"#{cmdfn}\""
-    err = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
+    err,stats = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
       [4,1].each do |jobs|
         info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
@@ -674,7 +678,7 @@ if create_archive
   end
   File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
   info.call "Creating archive #{ARCHIVE}..."
-  execute.call "tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
+  execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
 
 end # tmpdir
