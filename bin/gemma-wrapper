@@ -240,7 +240,7 @@ info.call GEMMA_K_BANNER
 # Check gemma version
 begin
   gemma_command2 = options[:gemma_command]
-  info.call "NOTE: gemma-wrapper is soon to be replaced"
+  # info.call "NOTE: gemma-wrapper is soon to be replaced"
 
   GEMMA_INFO = `#{gemma_command2}`
 rescue Errno::ENOENT
@@ -310,6 +310,15 @@ if DO_COMPUTE_GWA and options[:permute_phenotypes]
   raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
 end
 
+matches = {
+  user_time: [:float, /User time \(seconds\): ([\d\.]+)/],
+  system_time: [:float, /System time \(seconds\): ([\d\.]+)/],
+  perc_cpu: [:int, /Percent of CPU this job got: (\d+)%/],
+  wall_clock: [:string, /Elapsed \(wall clock\) time \(h:mm:ss or m:ss\): (\S+)/],
+  ram_usage_gb: [:gb, /Maximum resident set size \(kbytes\): (\d+)/],
+  command: [:string, /Command being timed: (.+)/]
+}
+
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
   err = 0
@@ -321,7 +330,26 @@ execute = lambda { |cmd|
       end
     end
     while s = stderr.gets
-
+      if s =~ /^\t/
+        matches.each do |k,v|
+          type,m = v
+          if s =~ m
+            # $stderr.print $1,s
+            stats[k] =
+              case type
+              when :float
+                $1.to_f
+              when :int
+                $1.to_i
+              when :gb
+                (($1.to_f)/1048576.0).round(3)
+              else
+                $1
+              end
+          end
+        end
+        next
+      end
       $stderr.print s
     end
     stdin.close
@@ -332,8 +360,9 @@ execute = lambda { |cmd|
   if err and err != 0
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     # sleep 10_000
-    exit err
+    exit 1
   end
+  $stderr.print stats
   return err,stats
 }
 
@@ -395,7 +424,7 @@ GEMMA_ARGS = gemma_args
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
 invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
-  cmd = "#{gemma_command2} #{GEMMA_ARGS.join(' ')} #{extra_args.join(' ')}"
+  cmd = "time -v #{gemma_command2} #{extra_args.join(' ')} #{GEMMA_ARGS.join(' ')}"
   record[:gemma_command] = cmd
   return if cache_hit
   if options[:slurm]
@@ -506,8 +535,9 @@ gwas = lambda do | chr, kfn, pfn, permutation=0 |
   hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
   if not cache_hit
     create_archive = true
-    args = [ '-k', kfn, '-o', hashi ]
+    args = []
     args << [ '-loco', chr ] if chr != nil
+    args << [ '-k', kfn, '-o', hashi ]
     args << [ '-p', pfn ] if pfn
     invoke_gemma.call args,false,chr,permutation
   end
@@ -533,7 +563,7 @@ if DO_COMPUTE_KINSHIP
   info.call CHROMOSOMES
   if LOCO
     CHROMOSOMES.each do |chr|
-      info.call "LOCO for ",chr
+      info.call "Compute kinship LOCO for chr ",chr
       kinship.call(chr)
     end
   else
@@ -631,25 +661,21 @@ if options[:parallel]
       end
     end
     cmd = "cat \"#{cmdfn}\""
-    err,stats = execute.call(cmd+"|parallel --joblog #{joblog}") # first try optimistically to run all jobs in parallel
+    err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
       [4,1].each do |jobs|
         info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
-        err = execute.call(cmd+"|parallel -j #{jobs} --resume --joblog #{joblog}")
+        err,stats = execute.call(cmd+"|parallel  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
         break if err == 0
       end
       if err != 0
         info.call("Parallel run failed!")
         debug.call("Job log is: ",File.read(joblog))
-        # Remove remaining files
-        # FileUtils.mv joblog, joblog+".bak", verbose: false, force: true
-        # FileUtils.rm_rf("#{tmpdir}/*", secure: true)
         exit err
       end
     end
   end
   info.call("Run successful!")
-  # FileUtils.mv joblog, tmpdir+"/"+joblog+".bak", verbose: false, force: true
 end
 
 meta = {}
@@ -673,7 +699,8 @@ if create_archive
     File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
     execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     if not options[:keep]
-      execute.call "rm -f #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
+      execute.call "rm -f #{tmpdir}/1/*/* #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
+      FileUtils.rm_rf("#{tmpdir}/1", secure: true)
     end
   end
   File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
