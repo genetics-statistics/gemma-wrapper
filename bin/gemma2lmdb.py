@@ -65,7 +65,8 @@ with lmdb.open(args.db,subdir=False) as env:
                         val = pack('=ffff', float(af), float(logl_H1), float(l_mle), float(p_lrt))
                         assert len(val)==16, f"Packed size is expected to be 16, but is {len(val)}"
                         res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
-                        assert res,f"Failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})"
+                        if res == 0:
+                            print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
     with env.begin() as txn:
         with txn.cursor() as curs:
             # quick check and output of keys
