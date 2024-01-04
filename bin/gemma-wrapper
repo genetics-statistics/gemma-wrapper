@@ -71,6 +71,7 @@ require 'digest/sha1'
 require 'fileutils'
 require 'optparse'
 require 'open3'
+require 'socket' # for hostname
 require 'tempfile'
 require 'time'
 require 'tmpdir'
@@ -100,6 +101,10 @@ opts = OptionParser.new do |o|
 
   o.on('--loco', 'Run full leave-one-chromosome-out (LOCO)') do |b|
     options[:loco] = b
+  end
+
+  o.on('--population NAME', 'Add population identifier to metadata') do |n|
+    options[:population] = n
   end
 
   o.on('--name NAME', 'Add dataset identifier to metadata') do |n|
@@ -188,6 +193,8 @@ record[:name] = options[:name] if options[:name]
 record[:trait] = options[:trait] if options[:trait]
 d = DateTime.now
 record[:time] = d.strftime("%Y/%m/%d %H:%M")
+record[:user] = ENV["USER"]
+record[:hostname] = Socket.gethostname
 
 require 'json'
 
@@ -351,25 +358,27 @@ run_stat = {}
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
   err = 0
+  stdout_buf = ""
+  stderr_buf = ""
   stats = {}
   Open3.popen3("time -v #{cmd}") do |stdin,stdout,stderr,wait_thr|
-    if options[:debug]
-      while s = stdout.gets
-        $stderr.print s
-      end
-    end
-    stats = parse_stats.call(stderr.read)
+    stderr_buf = stderr.read
+    stdout_buf = stdout.read
+    stats = parse_stats.call(stderr_buf)
     stdin.close
     stdout.close
     stderr.close
     err = wait_thr.value
   end
+  $stderr.print(stderr_buf) if options[:debug]
   if err and err != 0
+    $stderr.print(stdout_buf)
+    $stderr.print(stderr_buf) if not options[:debug]
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     # sleep 10_000
+    $stderr.print Kernel.caller().join("\n")
     exit 1
   end
-  $stderr.print stats
   return err,stats
 }
 
@@ -565,7 +574,11 @@ if DO_COMPUTE_KINSHIP
 
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
+    # $stderr.print "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
+    # sleep 0.2
+    # execute.call "ls #{tmpdir}"
+    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    # execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   info.call CHROMOSOMES
   if LOCO
@@ -687,18 +700,33 @@ end
 
 # Collect stats from parallel run
 
-run_stat[:test] = "HELLO"
+run_stats = {}
 $stderr.print "STATS"
 Dir.glob(tmpdir+'/*/*' ).each do | dir |
   File.open("#{dir}/stderr") { |f|
-    $stderr.print parse_stats.call(f.read).to_json
+    run_stat = parse_stats.call(f.read)
+    chr = run_stat[:chr]
+    run_stats[chr] = run_stat
   }
 end
+# Now add up the stats
+user_time = 0.0
+system_time = 0.0
+wall_clock = "0"
+ram_usage_gb = 0.0
+run_stats.each do | k, v |
+  wall_clock=v[:wall_clock] if v[:wall_clock]>wall_clock
+  ram_usage_gb += v[:ram_usage_gb]
+  user_time += v[:user_time]
+  system_time += v[:system_time]
+end
 
-$stderr.print run_stat,"\n"
-exit 1
+record[:user_time] = user_time
+record[:system_time] = system_time
+record[:wall_clock] = wall_clock
+record[:ram_usage_gb] = ram_usage_gb.round(2)
+record[:run_stats] = run_stats
 
-meta = {}
 if create_archive
   if DO_COMPUTE_GWA
     LMDB = tmpdir+"/"+HASH+'.mdb'
@@ -707,20 +735,22 @@ if create_archive
     meta = {
       type: "gemma-wrapper",
       version: version,
+      population: options[:population],
       name: options[:name],
       trait: options[:trait],
       url: "https://genenetwork.org/show_trait?trait_id="+options[:trait]+"&dataset="+options[:name],
       archive_GRM: json_in["archive"],
-      archive_GWA: File.basename(ARCHIVE)
+      archive_GWA: File.basename(ARCHIVE),
     }
+    record[:meta] = meta
     metafn = tmpdir+"/"+HASH+"-meta.json"
-    File.write(metafn,meta.to_json)
+    File.write(metafn,record.to_json)
     # sleep 10_000
     File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
     execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     if not options[:keep]
       execute.call "rm -f #{tmpdir}/1/*/* #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
-      # FileUtils.rm_rf("#{tmpdir}/1", secure: true)
+      FileUtils.rm_rf("#{tmpdir}/1", secure: true)
     end
   end
   File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
