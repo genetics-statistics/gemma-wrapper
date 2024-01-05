@@ -394,6 +394,7 @@ compute_hash = lambda do | phenofn = nil |
        end
   debug.call("Hashing on ",hm)
   hm.each do | item |
+    # if entry is a file use the hash of its content, otherwise just the entry itself
     if File.file?(item)
       hashes << Digest::SHA1.hexdigest(File.read(item))
       debug.call [item,hashes.last]
@@ -418,6 +419,7 @@ hashme =
   end
 
 HASH = compute_hash.call()
+options[:compute_hash_on] = hashme
 options[:hash] = HASH
 
 at_exit do
