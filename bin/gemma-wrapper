@@ -111,6 +111,10 @@ opts = OptionParser.new do |o|
     options[:name] = n
   end
 
+  o.on('--id ID', 'Add identifier to metadata') do |n|
+    options[:id] = n
+  end
+
   o.on('--trait TRAIT', 'Add trait identifier to metadata') do |n|
     options[:trait] = n
   end
@@ -190,6 +194,7 @@ OUTPUT = (options[:json] ? $stderr : $stdout )
 
 record = { warnings: [], errno: 0, debug: [] }
 record[:name] = options[:name] if options[:name]
+record[:id] = options[:id] if options[:id]
 record[:trait] = options[:trait] if options[:trait]
 d = DateTime.now
 record[:time] = d.strftime("%Y/%m/%d %H:%M")
@@ -734,6 +739,7 @@ if create_archive
     LMDB = tmpdir+"/"+HASH+'.mdb'
     # create lmdb database - we call out into a python script for that.
     # first create a JSON record
+
     meta = {
       type: "gemma-wrapper",
       version: version,
@@ -744,6 +750,12 @@ if create_archive
       archive_GRM: json_in["archive"],
       archive_GWA: File.basename(ARCHIVE),
     }
+    if options[:id] and options[:id] =~ /,/ # this is GN specific
+      dataid,probesetid,probesetfreezeid = options[:id].split(",")
+      meta[:dataid] = dataid.to_i
+      meta[:probesetid] = probesetid.to_i
+      meta[:probesetfreezeid] = probesetfreezeid.to_i
+    end
     record[:meta] = meta
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,record.to_json)
