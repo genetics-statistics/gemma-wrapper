@@ -581,11 +581,7 @@ if DO_COMPUTE_KINSHIP
 
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    # $stderr.print "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
-    # sleep 0.2
-    # execute.call "ls #{tmpdir}"
     execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
-    # execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
   info.call CHROMOSOMES
   if LOCO
@@ -610,17 +606,19 @@ else
   end
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
-  # ---- Unpack archive
-  if json_in["archive"]
-    archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-    execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{tmpdir}"
-  end
-
   pfn = options[:permute_phenotypes] # can be nil
   if LOCO
     k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
     k_files.each do | chr, kfn | # call a GWA for each chromosome
-      gwas.call(chr,tmpdir+"/"+kfn,pfn)
+
+      kfn2 = options[:cache_dir]+"/"+kfn
+      if not File.exist?(kfn2) and json_in["archive"]
+        # we aim to unpack the archive once on reuse
+        archive_grm = options[:cache_dir]+"/"+json_in["archive"]
+        execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}"
+      end
+
+      gwas.call(chr,kfn2,pfn)
     end
   else
     kfn = json_in["files"][0][2]
