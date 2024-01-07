@@ -20,9 +20,7 @@ import math
 from struct import *
 
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
-# parser.add_argument('--db',default="gemma.mdb",help="DB name")
-# parser.add_argument('--meta',required=False,help="JSON meta file name")
-
+parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
 parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name")
 args = parser.parse_args()
 
@@ -30,13 +28,14 @@ args = parser.parse_args()
 X=ord('X')
 Y=ord('Y')
 
-meta = { "type": "gemma-assoc",
-         "version": 1.0,
-         "key-format": ">cL",
-         "rec-format": "=ffff" }
-log = [] # track output log
-hits = [] # track hits
+snps = {}
+if args.anno:
+    for line in open(args.anno, 'r'):
+        snp,pos,chrom = line.rstrip('\n').split(", ")
+        key = chrom+":"+pos
+        snps[key] = snp
 
+print("chr,pos,marker,af,beta,se,l_mle,-logP")
 with lmdb.open(args.lmdb,subdir=False) as env:
     with env.begin() as txn:
         with txn.cursor() as curs:
@@ -56,5 +55,9 @@ with lmdb.open(args.lmdb,subdir=False) as env:
                     af,beta,se,l_mle,p_lrt = unpack('=fffff',rec)
                     effect = -beta/2.0
                     minusLogP = -math.log(p_lrt,10)
-                    print(",".join([chr,str(pos),str(round(af,4)),str(round(effect,4)),str(round(se,4)),str(l_mle),str(round(minusLogP,2))]))
-                    sys.exit(2)
+                    snp = "?"
+                    if args.anno:
+                        key2 = chr+":"+str(pos)
+                        snp = snps[key2]
+
+                    print(",".join([chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),str(round(se,4)),str(l_mle),str(round(minusLogP,2))]))
