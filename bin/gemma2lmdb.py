@@ -30,8 +30,8 @@ meta = { "type": "gemma-assoc",
          "version": 1.0,
          "key-format": ">cL",
          "rec-format": "=ffff" }
-log = {}
-hits = {}
+log = [] # track output log
+hits = [] # track hits
 
 with lmdb.open(args.db,subdir=False) as env:
     for fn in args.files:
@@ -67,6 +67,10 @@ with lmdb.open(args.db,subdir=False) as env:
                         res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
                         if res == 0:
                             print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
+                        else:
+                            if float(p_lrt) > 2.0:
+                                hits.append([chr,int(pos),rs,p_lrt])
+
     with env.begin() as txn:
         with txn.cursor() as curs:
             # quick check and output of keys
@@ -74,7 +78,10 @@ with lmdb.open(args.db,subdir=False) as env:
                 chr,pos = unpack('>cL',key)
                 # print(str(chr),pos)
 
+    meta["hits"] = hits
     meta["log"] = log
-    # print(meta)
+    print("HELLO: ",file=sys.stderr)
+    print(meta,file=sys.stderr)
+    # --- Store the metadata as a JSON record in the DB
     with env.begin(write=True) as txn:
         res = txn.put('meta'.encode(), json.dumps(meta).encode(), dupdata=False, overwrite=False)
