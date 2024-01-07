@@ -43,7 +43,7 @@ with lmdb.open(args.db,subdir=False) as env:
             with open(fn) as f:
                 with env.begin(write=True) as txn:
                     for line in f.readlines():
-                        chr,rs,pos,miss,a1,a0,af,logl_H1,l_mle,p_lrt = line.rstrip('\n').split('\t')
+                        chr,rs,pos,miss,a1,a0,af,beta,se,l_mle,p_lrt = line.rstrip('\n').split('\t')
                         if chr=='chr':
                             continue
                         if (chr =='X'):
@@ -62,8 +62,8 @@ with lmdb.open(args.db,subdir=False) as env:
                         assert test_pos == int(pos)
                         test_chr = unpack('c',chr_c)
                         # assert test_chr == int(chr), f"{test_chr} vs {int(chr)} - {chr}"
-                        val = pack('=ffff', float(af), float(logl_H1), float(l_mle), float(p_lrt))
-                        assert len(val)==16, f"Packed size is expected to be 16, but is {len(val)}"
+                        val = pack('=fffff', float(af), float(beta), float(se), float(l_mle), float(p_lrt))
+                        assert len(val)==20, f"Packed size is expected to be 20, but is {len(val)}"
                         res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
                         if res == 0:
                             print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")

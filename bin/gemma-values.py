@@ -16,6 +16,7 @@ import sys
 import argparse
 import json
 import lmdb
+import math
 from struct import *
 
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
@@ -51,4 +52,9 @@ with lmdb.open(args.lmdb,subdir=False) as env:
                         chr = "Y"
                     else:
                         chr = str(chr2)
-                    print(chr,pos)
+                    rec = txn.get(key)
+                    af,beta,se,l_mle,p_lrt = unpack('=fffff',rec)
+                    effect = -beta/2.0
+                    minusLogP = -math.log(p_lrt,10)
+                    print(",".join([chr,str(pos),str(round(af,4)),str(round(effect,4)),str(round(se,4)),str(l_mle),str(round(minusLogP,2))]))
+                    sys.exit(2)

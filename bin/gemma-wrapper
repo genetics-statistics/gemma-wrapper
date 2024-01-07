@@ -32,7 +32,7 @@ GEMMA wrapper example:
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
-        -lmm 2 -maf 0.1 \
+        -lmm 9 -maf 0.1 \
         -debug > GWA.json
 
 Gemma gets used from the path. You can override by setting
