@@ -4,7 +4,7 @@
 # Author:: Pjotr Prins
 # License:: GPL3
 #
-# Copyright (C) 2017-2023 Pjotr Prins <pjotr.prins@thebird.nl>
+# Copyright (C) 2017-2024 Pjotr Prins <pjotr.prins@thebird.nl>
 
 USAGE = "
 GEMMA wrapper example:
@@ -84,7 +84,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, parallel: nil }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, lmdb: nil, parallel: nil }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -150,6 +150,10 @@ opts = OptionParser.new do |o|
 
   o.on("--no-parallel", "Do not run jobs in parallel") do |b|
     options[:parallel] = false
+  end
+
+  o.on("--lmdb", "Generate lmdb output") do |b|
+    options[:lmdb] = true
   end
 
   o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
@@ -246,7 +250,7 @@ end
 # ---- Start banner
 
 GEMMA_K_VERSION=version
-GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017-2023\n"
+GEMMA_K_BANNER = "gemma-wrapper #{version} (Ruby #{RUBY_VERSION}) by Pjotr Prins 2017-2024\n"
 info.call GEMMA_K_BANNER
 
 # Check gemma version
@@ -254,9 +258,10 @@ begin
   gemma_command2 = options[:gemma_command]
   # info.call "NOTE: gemma-wrapper is soon to be replaced"
 
+  debug.call("Invoke #{gemma_command2}")
   GEMMA_INFO = `#{gemma_command2}`
 rescue Errno::ENOENT
-  gemma_command2 = "gemma"
+  gemma_command2 = "gemma" if not gemma_command2
   error.call "<#{gemma_command2}> command not found"
 end
 
@@ -686,6 +691,7 @@ if options[:parallel]
       end
     end
     cmd = "cat \"#{cmdfn}\""
+    debug.call("tmpdir=#{tmpdir}")
     err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
       [4,1].each do |jobs|
@@ -758,8 +764,10 @@ if create_archive
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,record.to_json)
     # sleep 10_000
-    File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
-    execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
+    if options[:lmdb]
+      File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
+      execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
+    end
     if not options[:keep]
       execute.call "rm -f #{tmpdir}/1/*/* #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
       FileUtils.rm_rf("#{tmpdir}/1", secure: true)
