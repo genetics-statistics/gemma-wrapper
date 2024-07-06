@@ -1,7 +1,8 @@
-## ChangeLog v0.99.7 ()
+## ChangeLog v0.99.7 (20240706)
 
 * Less aggressive trials of parallel compute - should really scale to size
 * Check for JSON switch
+* Added xz and lmdb output
 
 ## ChangeLog v0.99.6 (20220122)
 
