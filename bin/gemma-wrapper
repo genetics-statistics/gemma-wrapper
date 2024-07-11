@@ -103,6 +103,10 @@ opts = OptionParser.new do |o|
     options[:loco] = b
   end
 
+  o.on('--meta NAME', 'Pass in metadata as JSON file') do |n|
+    options[:meta] = n
+  end
+
   o.on('--population NAME', 'Add population identifier to metadata') do |n|
     options[:population] = n
   end
@@ -449,6 +453,10 @@ gemma_args << '-outdir'
 gemma_args << tmpdir
 GEMMA_ARGS = gemma_args
 
+gemma_args.include? "-g" and "Genotype switch -g missing for GEMMA"
+geno_filename = gemma_args[gemma_args.index("-g")+1]
+geno_hash = Digest::SHA1.hexdigest(File.read(geno_filename))
+
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
 invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
@@ -744,16 +752,26 @@ if create_archive
     # create lmdb database - we call out into a python script for that.
     # first create a JSON record
 
-    meta = {
+    meta =
+      if options[:meta]
+        { pheno: JSON.parse(File.read(options[:meta])) }
+      else
+        {}
+      end
+
+    meta = meta.merge({
       type: "gemma-wrapper",
       version: version,
       population: options[:population],
       name: options[:name],
       trait: options[:trait],
+      geno_filename: geno_filename,
+      geno_hash: geno_hash,
+      loco: options[:loco]
       url: "https://genenetwork.org/show_trait?trait_id="+options[:trait]+"&dataset="+options[:name],
       archive_GRM: json_in["archive"],
       archive_GWA: File.basename(ARCHIVE),
-    }
+    })
     if options[:id] and options[:id] =~ /,/ # this is GN specific
       dataid,probesetid,probesetfreezeid = options[:id].split(",")
       meta[:dataid] = dataid.to_i
