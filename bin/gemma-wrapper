@@ -384,9 +384,9 @@ execute = lambda { |cmd|
     stderr.close
     err = wait_thr.value
   end
+  $stderr.print(stdout_buf)
   $stderr.print(stderr_buf)
   if err and err != 0
-    $stderr.print(stdout_buf)
     # $stderr.print(stderr_buf)
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     # sleep 10_000

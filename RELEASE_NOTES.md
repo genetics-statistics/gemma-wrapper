@@ -1,3 +1,9 @@
+## Changelog v1.00-pre1
+
+* Stable release!
+* lmdb output contains metadata
+* improved error handling
+
 ## ChangeLog v0.99.7 (20240706)
 
 * Less aggressive trials of parallel compute - should really scale to size

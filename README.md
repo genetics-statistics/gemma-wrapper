@@ -19,11 +19,12 @@ GEMMA is a software toolkit for fast application of linear mixed
 models (LMMs) and related models to genome-wide association studies
 (GWAS) and other large-scale data sets.
 
-This repository contains gemma-wrapper, essentially a wrapper of
-GEMMA that provides support for caching the kinship or relatedness
-matrix (K) and caching LM and LMM computations with the option of full
+This repository contains gemma-wrapper, essentially a wrapper of GEMMA
+that provides support for caching the kinship or relatedness matrix
+(K) and caching LM and LMM computations with the option of full
 leave-one-chromosome-out genome scans (LOCO). Jobs can also be
-submitted to HPC PBS, i.e., slurm.
+submitted to HPC PBS, i.e., slurm. gemma-wrapper can also create an
+lmdb output file with the --lmdb switch.
 
 gemma-wrapper requires a recent version of GEMMA and essentially
 does a pass-through of all standard GEMMA invocation switches. On
@@ -194,7 +195,7 @@ switch
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
-        -lmm 2 -maf 0.1 \
+        -lmm 9 -maf 0.1 \
         -debug  > GWA.json
 
 GWA.json contains the file names of every chromosome
@@ -225,7 +226,7 @@ Next, using K.json, permute the phenotypes with something like
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
-        -lmm 2 -maf 0.1 \
+        -lmm 9 -maf 0.1 \
         -debug > GWA.json
 
 This should get the estimated 95% (significant) and 67% (suggestive) thresholds:
