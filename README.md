@@ -195,7 +195,7 @@ switch
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
         -lmm 2 -maf 0.1 \
-        -debug > GWA.json
+        -debug  > GWA.json
 
 GWA.json contains the file names of every chromosome
 
@@ -213,6 +213,7 @@ Permutations can be run with and without LOCO. First create K
     gemma-wrapper --json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
+        -a test/data/input/BXD_snps.txt \
         -gk \
         -debug > K.json
 
@@ -247,4 +248,4 @@ ruby bin/gemma-wrapper --help
 
 ## Copyright
 
-Copyright (c) 2017-2023 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.
+Copyright (c) 2017-2024 Pjotr Prins. See [LICENSE.txt](LICENSE.txt) for further details.

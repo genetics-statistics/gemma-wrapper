@@ -84,7 +84,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, lmdb: nil, parallel: nil }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -384,10 +384,10 @@ execute = lambda { |cmd|
     stderr.close
     err = wait_thr.value
   end
-  $stderr.print(stderr_buf) if options[:debug]
+  $stderr.print(stderr_buf)
   if err and err != 0
     $stderr.print(stdout_buf)
-    $stderr.print(stderr_buf) if not options[:debug]
+    # $stderr.print(stderr_buf)
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     # sleep 10_000
     $stderr.print Kernel.caller().join("\n")
@@ -767,7 +767,7 @@ if create_archive
       trait: options[:trait],
       geno_filename: geno_filename,
       geno_hash: geno_hash,
-      loco: options[:loco]
+      loco: options[:loco],
       url: "https://genenetwork.org/show_trait?trait_id="+options[:trait]+"&dataset="+options[:name],
       archive_GRM: json_in["archive"],
       archive_GWA: File.basename(ARCHIVE),
@@ -781,7 +781,6 @@ if create_archive
     record[:meta] = meta
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,record.to_json)
-    # sleep 10_000
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
       execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
@@ -801,3 +800,5 @@ end # tmpdir
 record[:archive] = File.basename(ARCHIVE)
 
 print json_out.call
+
+# sleep 10_000

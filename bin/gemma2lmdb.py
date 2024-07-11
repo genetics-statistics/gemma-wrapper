@@ -33,6 +33,9 @@ meta = { "type": "gemma-assoc",
 log = [] # track output log
 hits = [] # track hits
 
+print(json.load(open(args.meta)))
+sys.quit(1)
+
 with lmdb.open(args.db,subdir=False) as env:
     for fn in args.files:
         print(f"Processing {fn}...")
