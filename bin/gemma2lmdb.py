@@ -83,7 +83,19 @@ with lmdb.open(args.db,subdir=False) as env:
 
     meta["hits"] = hits
     meta["log"] = log
-    print("HELLO: ",file=sys.stderr)
+    # make it reproducible by removing variable items
+    print(meta)
+    del meta["gemma-wrapper"]["time"]
+    del meta["gemma-wrapper"]["user_time"]
+    del meta["gemma-wrapper"]["system_time"]
+    del meta["gemma-wrapper"]["wall_clock"]
+    del meta["gemma-wrapper"]["ram_usage_gb"]
+    del meta["gemma-wrapper"]["run_stats"]
+    del meta["gemma-wrapper"]["user"]
+    del meta["gemma-wrapper"]["hostname"]
+    del meta["gemma-wrapper"]["gemma_command"]
+
+    # print("HELLO: ",file=sys.stderr)
     print(meta,file=sys.stderr)
     # --- Store the metadata as a JSON record in the DB
     with env.begin(write=True) as txn:

@@ -790,7 +790,7 @@ if create_archive
       FileUtils.rm_rf("#{tmpdir}/1", secure: true)
     end
   end
-  File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
+  # File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
   info.call "Creating archive #{ARCHIVE}..."
   execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
