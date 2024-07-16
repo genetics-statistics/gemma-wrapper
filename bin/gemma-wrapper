@@ -608,10 +608,13 @@ if DO_COMPUTE_KINSHIP
 else
   # DO_COMPUTE_GWA
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
-  if File.exist? ARCHIVE and not options[:force]
-    info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
+  if options[:lmdb] and File.exist? ARCHIVE and not options[:force]
+    print json_out.call # short cut because lmdb is self contained, also for LOCO
+    exit 0
   end
+  #  info.call "Unpack archive #{ARCHIVE}!"
+  #  execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
+
   begin
     json_in = JSON.parse(File.read(options[:input]))
   rescue TypeError

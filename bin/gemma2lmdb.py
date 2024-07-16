@@ -84,7 +84,6 @@ with lmdb.open(args.db,subdir=False) as env:
     meta["hits"] = hits
     meta["log"] = log
     # make it reproducible by removing variable items
-    print(meta)
     del meta["gemma-wrapper"]["time"]
     del meta["gemma-wrapper"]["user_time"]
     del meta["gemma-wrapper"]["system_time"]
