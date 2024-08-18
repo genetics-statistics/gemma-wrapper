@@ -784,6 +784,11 @@ if create_archive
     record[:meta] = meta
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,record.to_json)
+    if options[:keep]
+      keepdir = tmpdir + "-keep"
+      FileUtils.mkdir(keepdir)
+      execute.call("cp -vau #{tmpdir} #{keepdir}")
+    end
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
       execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
