@@ -37,7 +37,7 @@ with open(genofn) as f:
         fields = line.rstrip().split("\t")
         if fields[0] == "Chr":
             # print(fields)
-            samples = fields[4:-1]
+            samples = fields[4:]
             meta["samples"] = samples
             meta["numsamples"] = len(samples)
             continue

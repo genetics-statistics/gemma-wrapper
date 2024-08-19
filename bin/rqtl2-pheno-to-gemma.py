@@ -41,18 +41,18 @@ if sampleset.difference(csvset):
     print(f"ERROR: sets differ {sampleset.difference(csvset)}",file=sys.stderr)
     sys.exit(2)
 
-if csvset.difference(sampleset):
+if csvset.symmetric_difference(sampleset):
     print(f"WARNING: sets differ, we'll ignore inputs from {args.file} {csvset.difference(sampleset)}",file=sys.stderr)
 
 # if len(samples) != len(csv.index): # superfluous with above
 #     print(f"ERROR: sizes do not match len(samples)={len(samples)} and len(csv.index)={len(csv.index)}",file=sys.stderr)
 #     sys.exit(2)
 
-l = [] # generate genotype ordered sample output
+l = [] # generate genotype ordered sample output - samples is the 'truth' list matching the genotypes - the sample has to exist on the input CSV
 for s in samples:
     l.append(csv.loc[s])
 
 out = pd.DataFrame(l)
-out.to_csv(sys.stdout,na_rep='NA',sep="\t",index=False,header=False)
+out.to_csv(sys.stdout,na_rep='NA',sep="\t",header=False)
 
-print(f"Wrote GEMMA pheno {len(l)} with genometypes (rows) and {len(out.columns)} collections (cols)!",file=sys.stderr)
+print(f"Wrote GEMMA pheno {len(l)} from {len(samples)} with genometypes (rows) and {len(out.columns)} collections (cols)!",file=sys.stderr)
