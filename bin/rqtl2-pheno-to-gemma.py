@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 #
 # Takes an R/qtl2 type CSV and writes the GEMMA file checking for the genotype/genometype names
-# and writing an ordered list to stdout. Usage:
+# from a JSON file and writing an ordered list to stdout.
 #
 # Note that GEMMA can take multi-column phenotype files and picks with the -n switch
 # See also https://issues.genenetwork.org/topics/data/R-qtl2-format-notes
+#
+# Also two types of JSON file are supported. The one from GN and the one from gn-geno-to-gemma.py
 #
 # Pjotr Prins (c) 2024
 
@@ -18,12 +20,19 @@ from struct import *
 import pandas as pd
 
 parser = argparse.ArgumentParser(description='Turn R/qtl2 type pheno format into GEMMA pheno format')
+parser.add_argument('--json',default="BXD.json",help="JSON file for sample names")
 parser.add_argument('file',help="R/qtl pheno file")
 args = parser.parse_args()
 
 csv = pd.read_csv(args.file,index_col=0,na_values=['x','NA','-',''])
-js = json.load(open("BXD.json"))
-samples = js["genofile"][0]["sample_list"] # list individuals
+js = json.load(open(args.json))
+
+if "type" in js:
+    type = js["type"]
+    if type == "gn-geno-to-gemma":
+        samples = js["samples"]
+else:
+    samples = js["genofile"][0]["sample_list"] # list individuals
 
 sampleset = set(samples)
 csvset = set(csv.index)
@@ -46,4 +55,4 @@ for s in samples:
 out = pd.DataFrame(l)
 out.to_csv(sys.stdout,na_rep='NA',sep="\t",index=False,header=False)
 
-print(f"Wrote GEMMA pheno {len(l)} rows and {len(out.columns)} cols!",file=sys.stderr)
+print(f"Wrote GEMMA pheno {len(l)} with genometypes (rows) and {len(out.columns)} collections (cols)!",file=sys.stderr)
