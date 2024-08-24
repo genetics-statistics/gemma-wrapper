@@ -13,7 +13,7 @@ import json
 # import pandas as pd
 from struct import *
 
-import pandas as pd
+# import pandas as pd
 
 meta = { "type": "gn-geno-to-gemma"
          }
