@@ -463,6 +463,37 @@ geno_hash = Digest::SHA1.hexdigest(File.read(geno_filename))
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
+invoke_parallel = lambda do ||
+  # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
+  joblog = tmpdir+"/"+JOBLOG
+
+  Tempfile.open("commands.txt") do |f|
+    cmdfn = f.path
+    File.open(cmdfn,"w") do |f|
+      parallel_cmds.each do |c|
+        f.puts(c)
+      end
+    end
+    parallel_cmds = [] # reset execution list
+    cmd = "cat \"#{cmdfn}\""
+    debug.call("tmpdir=#{tmpdir}")
+    err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
+    if err != 0
+      [4,1].each do |jobs|
+        info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
+        err,stats = execute.call(cmd+"|parallel  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
+        break if err == 0
+      end
+      if err != 0
+        info.call("Parallel run failed!")
+        debug.call("Job log is: ",File.read(joblog))
+        exit err
+      end
+    end
+  end
+  info.call("Parallel run successful!")
+end
+
 invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
   cmd = "time -v #{gemma_command2} #{extra_args.join(' ')} #{GEMMA_ARGS.join(' ')}"
   record[:gemma_command] = cmd
@@ -660,13 +691,15 @@ else
       # Create a shuffled phenotype file
       file = File.open("phenotypes-#{permutation}","w")
       tmp_pfn = file.path
-      p tmp_pfn
       ps.shuffle.each do | l |
         file.print(l)
       end
       file.close
       k_files.each do | chr, kfn | # call a GWA for each chromosome
         gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
+      end
+      if options[:parallel]
+        invoke_parallel.call()
       end
       score_min = 1000.0
       if not options[:slurm]
@@ -685,7 +718,6 @@ else
     end
     exit 0 if options[:slurm]
     ls = score_list.sort
-    p ls
     significant = ls[(ls.size - ls.size*0.95).floor]
     suggestive = ls[(ls.size - ls.size*0.67).floor]
     p ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
@@ -694,35 +726,8 @@ else
   end
 end
 
-# ---- Invoke parallel
 if options[:parallel]
-  # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
-  joblog = tmpdir+"/"+JOBLOG
-
-  Tempfile.open("commands.txt") do |f|
-    cmdfn = f.path
-    File.open(cmdfn,"w") do |f|
-      parallel_cmds.each do |c|
-        f.puts(c)
-      end
-    end
-    cmd = "cat \"#{cmdfn}\""
-    debug.call("tmpdir=#{tmpdir}")
-    err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
-    if err != 0
-      [4,1].each do |jobs|
-        info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
-        err,stats = execute.call(cmd+"|parallel  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
-        break if err == 0
-      end
-      if err != 0
-        info.call("Parallel run failed!")
-        debug.call("Job log is: ",File.read(joblog))
-        exit err
-      end
-    end
-  end
-  info.call("Run successful!")
+  invoke_parallel.call()
 end
 
 # Collect stats from parallel run
