@@ -6,6 +6,8 @@
 #
 # Copyright (C) 2017-2024 Pjotr Prins <pjotr.prins@thebird.nl>
 
+srand(12345) # seed randomizer
+
 USAGE = "
 GEMMA wrapper example:
 
@@ -447,7 +449,9 @@ JOBLOG  = HASH+"-parallel.log"
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
-Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
+# Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
+tmpdir = "/tmp/test"
+Dir.mkdir(tmpdir)
 
 gemma_args << '-outdir'
 gemma_args << tmpdir
@@ -518,7 +522,7 @@ create_archive = false
 cache = lambda do | chr, ext, h=HASH, permutation=0 |
   inject = (chr==nil ? "" : ".#{chr}" )+ext
   hashi = (chr==nil ? h : h+inject)
-  prefix = options[:cache_dir]+'/'+hashi+(permutation!=0 ? "."+permutation.to_s : "")
+  prefix = options[:cache_dir]+'/'+hashi # +(permutation!=0 ? ".p"+permutation.to_s : "")
   # for chr 3 and permutation 1 forms something like
   #   /tmp/1b700-a996f.3.cXX.txt.1.log.txt
   logfn  = prefix+".log.txt"
@@ -652,7 +656,7 @@ else
     score_list = []
     debug.call(options[:permutate],"x permutations")
     (1..options[:permutate]).each do |permutation|
-      $stderr.print "Iteration ",permutation,"\n"
+      info.call("Iteration #{permutation}/#{options[:permutate]}")
       # Create a shuffled phenotype file
       file = File.open("phenotypes-#{permutation}","w")
       tmp_pfn = file.path
@@ -662,12 +666,13 @@ else
       end
       file.close
       k_files.each do | chr, kfn | # call a GWA for each chromosome
-        gwas.call(chr,kfn,tmp_pfn,permutation)
+        gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
       end
       score_min = 1000.0
-      if false and not options[:slurm]
-        # p [:HEY,record[:files].last]
-        assocfn = record[:files].last[2]
+      if not options[:slurm]
+        p [:HEY,tmpdir,record[:files].last]
+        print `ls -l #{tmpdir}`
+        assocfn = tmpdir + '/' + record[:files].last[2]
         debug.call("Reading ",assocfn)
         File.foreach(assocfn).with_index do |assoc, assoc_line_num|
           if assoc_line_num > 0
@@ -803,7 +808,7 @@ if create_archive
   execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
 
-end # tmpdir
+# end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 

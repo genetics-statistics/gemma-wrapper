@@ -223,7 +223,6 @@ Next, using K.json, permute the phenotypes with something like
     gemma-wrapper --json --loco --input K.json \
         --permutate 100 --permute-phenotype test/data/input/BXD_pheno.txt -- \
         -g test/data/input/BXD_geno.txt.gz \
-        -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
         -a test/data/input/BXD_snps.txt \
         -lmm 9 -maf 0.1 \
