@@ -6,7 +6,6 @@
 #
 # Copyright (C) 2017-2024 Pjotr Prins <pjotr.prins@thebird.nl>
 
-srand(12345) # seed randomizer
 
 USAGE = "
 GEMMA wrapper example:
@@ -168,6 +167,10 @@ opts = OptionParser.new do |o|
     if slurm
       options[:slurm_opts] = slurm
     end
+  end
+
+  o.on("--fix-random", "Fixate the randomizer for reproducible testing") do |b|
+    srand(12345) # seed randomizer
   end
 
   o.on("--q", "--quiet", "Run quietly") do |q|
@@ -449,9 +452,9 @@ JOBLOG  = HASH+"-parallel.log"
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
-# Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
-tmpdir = "/tmp/test"
-Dir.mkdir(tmpdir)
+Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
+# tmpdir = "/tmp/test" # fixate tmpdir for testing
+# Dir.mkdir(tmpdir)
 
 gemma_args << '-outdir'
 gemma_args << tmpdir
@@ -463,7 +466,7 @@ geno_hash = Digest::SHA1.hexdigest(File.read(geno_filename))
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
-invoke_parallel = lambda do ||
+invoke_parallel = lambda do |msg=nil|
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
   joblog = tmpdir+"/"+JOBLOG
 
@@ -477,6 +480,7 @@ invoke_parallel = lambda do ||
     parallel_cmds = [] # reset execution list
     cmd = "cat \"#{cmdfn}\""
     debug.call("tmpdir=#{tmpdir}")
+    p msg if msg
     err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
     if err != 0
       [4,1].each do |jobs|
@@ -685,11 +689,13 @@ else
       ps << line
     end
     score_list = []
+    significant_str = []
+    suggestive_str = []
     debug.call(options[:permutate],"x permutations")
     (1..options[:permutate]).each do |permutation|
       info.call("Iteration #{permutation}/#{options[:permutate]}")
       # Create a shuffled phenotype file
-      file = File.open("phenotypes-#{permutation}","w")
+      file = File.open(tmpdir+"/phenotypes-#{permutation}","w")
       tmp_pfn = file.path
       ps.shuffle.each do | l |
         file.print(l)
@@ -699,7 +705,7 @@ else
         gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
       end
       if options[:parallel]
-        invoke_parallel.call()
+        invoke_parallel.call([permutation,significant_str,suggestive_str])
       end
       score_min = 1000.0
       if not options[:slurm]
@@ -715,13 +721,14 @@ else
         end
       end
       score_list << score_min
+      ls = score_list.sort
+      significant = ls[(ls.size - ls.size*0.95).floor]
+      suggestive = ls[(ls.size - ls.size*0.67).floor]
+      significant_str = ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
+      suggestive_str = ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
+      p significant_str
+      p suggestive_str
     end
-    exit 0 if options[:slurm]
-    ls = score_list.sort
-    significant = ls[(ls.size - ls.size*0.95).floor]
-    suggestive = ls[(ls.size - ls.size*0.67).floor]
-    p ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
-    p ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
     exit 0
   end
 end
@@ -813,7 +820,7 @@ if create_archive
   execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
 end
 
-# end # tmpdir
+end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 
