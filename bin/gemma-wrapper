@@ -626,6 +626,14 @@ if LOCO
 end
 
 json_in = nil
+if options[:input]
+  begin
+    json_in = JSON.parse(File.read(options[:input]))
+    record[:input] = json_in
+  rescue TypeError
+    raise "Missing JSON input file for #{options[:input]}?"
+  end
+end
 
 if DO_COMPUTE_KINSHIP
   # compute K
@@ -654,11 +662,6 @@ else
   #  info.call "Unpack archive #{ARCHIVE}!"
   #  execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
 
-  begin
-    json_in = JSON.parse(File.read(options[:input]))
-  rescue TypeError
-    raise "Missing JSON input file?"
-  end
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
   pfn = options[:permute_phenotypes] # can be nil
