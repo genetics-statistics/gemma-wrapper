@@ -128,7 +128,7 @@ opts = OptionParser.new do |o|
     options[:chromosomes] = lst
   end
 
-  o.on('--input filen',String, 'JSON input variables (used for LOCO)') do |filen|
+  o.on('--input filen',String, 'JSON input variables (used for LOCO control and reduction)') do |filen|
     options[:input] = filen
     raise "JSON input file #{filen} does not exist" if !File.exist?(filen)
   end
