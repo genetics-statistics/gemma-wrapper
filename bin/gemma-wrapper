@@ -581,6 +581,19 @@ cache = lambda do | chr, ext, h=HASH, permutation=0 |
   return hashi,false
 end
 
+# ---- Read JSON input file
+json_in = nil
+if options[:input]
+  begin
+    json_in = JSON.parse(File.read(options[:input]))
+    record[:input] = json_in
+  rescue TypeError
+    raise "Missing JSON input file for #{options[:input]}?"
+  end
+end
+
+USE_REDUCED_GRM = json_in["input"] and json_in["input"]["samples-reduced"] != nil
+
 # ---- Compute K
 kinship = lambda do | chr = nil |
   record[:type] = "K"
@@ -604,12 +617,10 @@ end
 reduce_samples = lambda do | kfn, pfn |
   if USE_REDUCED_GRM
     # Next we make a reduced GRM and Pheno file
-    info.call "Reducing GRM and pheno file!"
-    p[kfn3,pfn3]
-    exit 2
-  else
-    return kfn,pfn
+    info.call "Reducing GRM and pheno files! #{kfn} #{pfn}"
+    error.call "FAIL" if not pfn
   end
+  return kfn,pfn
 end
 
 # ---- Run GWA
@@ -638,17 +649,6 @@ if LOCO
   end
 end
 
-json_in = nil
-if options[:input]
-  begin
-    json_in = JSON.parse(File.read(options[:input]))
-    record[:input] = json_in
-  rescue TypeError
-    raise "Missing JSON input file for #{options[:input]}?"
-  end
-end
-
-USE_REDUCED_GRM = json_in["samples-reduced"] != nil
 
 if DO_COMPUTE_KINSHIP
   # compute K
@@ -684,14 +684,12 @@ else
     k_files.each do | chr, kfn | # call a GWA for each chromosome
 
       kfn2 = options[:cache_dir]+"/"+kfn
-      kfn3 = kfn2
-      pfn3 = pfn
       if not File.exist?(kfn2) and json_in["archive"]
         # we aim to unpack the GRM archive once on reuse
         archive_grm = options[:cache_dir]+"/"+json_in["archive"]
         execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}"
       end
-      gwas.call(chr,kfn3,pfn3)
+      gwas.call(chr,kfn2,pfn)
     end
   else
     kfn = json_in["files"][0][2]
