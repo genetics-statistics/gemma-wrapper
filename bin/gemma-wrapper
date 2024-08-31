@@ -601,10 +601,23 @@ kinship = lambda do | chr = nil |
   end
 end
 
+reduce_samples = lambda do | kfn, pfn |
+  if USE_REDUCED_GRM
+    # Next we make a reduced GRM and Pheno file
+    info.call "Reducing GRM and pheno file!"
+    p[kfn3,pfn3]
+    exit 2
+  else
+    return kfn,pfn
+  end
+end
+
 # ---- Run GWA
 gwas = lambda do | chr, kfn, pfn, permutation=0 |
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
+
+  kfn,pfn = reduce_samples.call(kfn,pfn)
   # Update hash for each permutation
   hash = compute_hash.call(pfn)
   hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
@@ -635,6 +648,8 @@ if options[:input]
   end
 end
 
+USE_REDUCED_GRM = json_in["samples-reduced"] != nil
+
 if DO_COMPUTE_KINSHIP
   # compute K
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-cXX.tar.xz"
@@ -656,11 +671,10 @@ else
   # DO_COMPUTE_GWA
   ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
   if options[:lmdb] and File.exist? ARCHIVE and not options[:force]
+    info.call "#{ARCHIVE} CACHE HIT!"
     print json_out.call # short cut because lmdb is self contained, also for LOCO
     exit 0
   end
-  #  info.call "Unpack archive #{ARCHIVE}!"
-  #  execute.call "env XZ_OPT='-T0' tar xJf #{ARCHIVE} -C #{tmpdir}"
 
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
@@ -670,13 +684,14 @@ else
     k_files.each do | chr, kfn | # call a GWA for each chromosome
 
       kfn2 = options[:cache_dir]+"/"+kfn
+      kfn3 = kfn2
+      pfn3 = pfn
       if not File.exist?(kfn2) and json_in["archive"]
-        # we aim to unpack the archive once on reuse
+        # we aim to unpack the GRM archive once on reuse
         archive_grm = options[:cache_dir]+"/"+json_in["archive"]
         execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}"
       end
-
-      gwas.call(chr,kfn2,pfn)
+      gwas.call(chr,kfn3,pfn3)
     end
   else
     kfn = json_in["files"][0][2]
@@ -812,10 +827,8 @@ if create_archive
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
       execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
-    end
-    if not options[:keep]
-      execute.call "rm -f #{tmpdir}/1/*/* #{tmpdir}/*.txt #{tmpdir}/*.log #{tmpdir}/*.mdb-lock" # remove GEMMA output files
-      FileUtils.rm_rf("#{tmpdir}/1", secure: true)
+    else
+      execute.call "cp -vau #{tmpdir}/*.txt #{Dir.tmpdir}"
     end
   end
   # File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
