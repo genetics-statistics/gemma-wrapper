@@ -689,7 +689,7 @@ else
       if not File.exist?(kfn2) and json_in["archive"]
         # we aim to unpack the GRM archive once on reuse
         archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-        execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}"
+        execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
       end
       CHROMOSOMES.each do | chr |
         gwas.call(chr,kfn2)
@@ -823,18 +823,19 @@ if create_archive
     if options[:keep]
       keepdir = tmpdir + "-keep"
       FileUtils.mkdir(keepdir)
-      execute.call("cp -vau #{tmpdir} #{keepdir}")
+      execute.call("cp -vau #{tmpdir}/*.txt #{tmpdir}/*.json #{tmpdir}/*.log #{keepdir}")
     end
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
       execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     else
-      execute.call "cp -vau #{tmpdir}/*.txt #{Dir.tmpdir}"
+      warning.call "If we don't use the --lmdb switch just copy the files. Old behaviour and should be deprecated."
+      execute.call "cp -vau #{tmpdir}/*.txt #{Dir.tmpdir}" # note: don't copy .log files - it confuses parallel
     end
   end
   # File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
   info.call "Creating archive #{ARCHIVE}..."
-  execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} -C #{tmpdir} ."
+  execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
 end
 
 end # tmpdir
