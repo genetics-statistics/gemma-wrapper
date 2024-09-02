@@ -12,7 +12,7 @@ GEMMA wrapper example:
 
     Simple caching of K computation with
 
-      gemma-wrapper -- \
+      gemma-wrapper --json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -a test/data/input/BXD_snps.txt \
@@ -85,7 +85,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, permute_phenotypes: false, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, phenotypes: nil, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -95,8 +95,8 @@ opts = OptionParser.new do |o|
     options[:force] = true
   end
 
-  o.on('--permute-phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
-    options[:permute_phenotypes] = phenotypes
+  o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
+    options[:phenotypes] = phenotypes
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
   end
 
@@ -332,7 +332,7 @@ geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
 pheno_idx = gemma_args.index '-p'
 
-if DO_COMPUTE_GWA and options[:permute_phenotypes]
+if DO_COMPUTE_GWA and options[:phenotypes]
   raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
 end
 
@@ -402,7 +402,7 @@ execute = lambda { |cmd|
 }
 
 compute_hash = lambda do | phenofn = nil |
-  # Compute a HASH on the inputs
+  # Compute a HASH on the inputs - if it resolves to a file we HASH the file contents
   error.call "Hash is empty" if hashme == nil or hashme == []
   debug.call "Hashing on ",hashme," before phenofn inject"
   hashes = []
@@ -592,7 +592,8 @@ if options[:input]
   end
 end
 
-USE_REDUCED_GRM = json_in["input"] and json_in["input"]["samples-reduced"] != nil
+USE_REDUCED_GRM = (json_in and json_in["input"] and json_in["input"]["samples-reduced"])
+# p [json_in,json_in["input"],USE_REDUCED_GRM]
 
 # ---- Compute K
 kinship = lambda do | chr = nil |
@@ -617,17 +618,19 @@ end
 reduce_samples = lambda do | kfn, pfn |
   if USE_REDUCED_GRM
     # Next we make a reduced GRM and Pheno file
-    info.call "Reducing GRM and pheno files! #{kfn} #{pfn}"
-    error.call "FAIL" if not pfn
+    info.call "Reducing GRM and pheno files! #{[kfn,pfn]}"
+    error.call "FAIL pfn = #{pfn}" if not pfn
   end
   return kfn,pfn
 end
 
 # ---- Run GWA
-gwas = lambda do | chr, kfn, pfn, permutation=0 |
+gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
+  # if pfn is nil we assume the phenotype file is already on the CLI
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
-
+  error.call "Do not use the GEMMA -p switch with gemma-wrapper if you are using JSON phenotypes!" if pfn and USE_REDUCED_GRM
+  error.call "Do not use the GEMMA -p switch with gemma-wrapper if you are using --phenotypes!" if pfn and GEMMA_ARGS.include? '-p'
   kfn,pfn = reduce_samples.call(kfn,pfn)
   # Update hash for each permutation
   hash = compute_hash.call(pfn)
@@ -678,7 +681,6 @@ else
 
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
-  pfn = options[:permute_phenotypes] # can be nil
   if LOCO
     k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
     k_files.each do | chr, kfn | # call a GWA for each chromosome
@@ -689,19 +691,20 @@ else
         archive_grm = options[:cache_dir]+"/"+json_in["archive"]
         execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}"
       end
-      gwas.call(chr,kfn2,pfn)
+      CHROMOSOMES.each do | chr |
+        gwas.call(chr,kfn2)
+      end
     end
   else
     kfn = json_in["files"][0][2]
-    CHROMOSOMES.each do | chr |
-      gwas.call(chr,tmpdir+"/"+kfn,pfn)
-    end
+    gwas.call(nil,options[:cache_dir]+"/"+kfn)
   end
   # Permute
   if options[:permutate]
+    permute_pfn = options[:phenotypes] # can be nil
     ps = []
-    raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not pfn
-    File.foreach(pfn).with_index do |line, line_num|
+    raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not permute_pfn
+    File.foreach(permute_pfn).with_index do |line, line_num|
       ps << line
     end
     score_list = []
