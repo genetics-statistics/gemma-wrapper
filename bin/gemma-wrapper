@@ -618,15 +618,19 @@ end
 reduce_samples = lambda do | kfn, pfn |
   if USE_REDUCED_GRM
     # Next we make a reduced GRM and Pheno file
-    info.call "Reducing GRM and pheno files! #{[kfn,pfn]}"
-    error.call "FAIL pfn = #{pfn}" if not pfn
+    info.call "Reducing GRM! #{kfn}"
+    if pfn
+      info.call "Reducing pheno file! #{pfn}"
+    else
+      info.call "Writing pheno file from JSON!"
+    end
   end
   return kfn,pfn
 end
 
 # ---- Run GWA
 gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
-  # if pfn is nil we assume the phenotype file is already on the CLI
+  # if pfn is nil we assume the phenotype file is already on the CLI or in JSON
   record[:type] = "GWA"
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   error.call "Do not use the GEMMA -p switch with gemma-wrapper if you are using JSON phenotypes!" if pfn and USE_REDUCED_GRM
@@ -684,16 +688,13 @@ else
   if LOCO
     k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
     k_files.each do | chr, kfn | # call a GWA for each chromosome
-
       kfn2 = options[:cache_dir]+"/"+kfn
       if not File.exist?(kfn2) and json_in["archive"]
         # we aim to unpack the GRM archive once on reuse
         archive_grm = options[:cache_dir]+"/"+json_in["archive"]
         execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
       end
-      CHROMOSOMES.each do | chr |
-        gwas.call(chr,kfn2)
-      end
+      gwas.call(chr,kfn2)
     end
   else
     kfn = json_in["files"][0][2]
