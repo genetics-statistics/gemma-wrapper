@@ -392,9 +392,7 @@ execute = lambda { |cmd|
   $stderr.print(stdout_buf)
   $stderr.print(stderr_buf)
   if err and err != 0
-    # $stderr.print(stderr_buf)
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
-    # sleep 10_000
     $stderr.print Kernel.caller().join("\n")
     exit 1
   end
@@ -452,9 +450,9 @@ JOBLOG  = HASH+"-parallel.log"
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
-Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output
-# tmpdir = "/tmp/test" # fixate tmpdir for testing
-# Dir.mkdir(tmpdir)
+# Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output - note that if there is an error here it is probably parallel failing!
+tmpdir = "/tmp/test" # fixate tmpdir for testing
+Dir.mkdir(tmpdir)
 
 gemma_args << '-outdir'
 gemma_args << tmpdir
@@ -470,7 +468,7 @@ invoke_parallel = lambda do |msg=nil|
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
   joblog = tmpdir+"/"+JOBLOG
 
-  Tempfile.open("commands.txt") do |f|
+  File.open(tmpdir+"/parallel-commands.txt","w") do |f|
     cmdfn = f.path
     File.open(cmdfn,"w") do |f|
       parallel_cmds.each do |c|
@@ -481,8 +479,13 @@ invoke_parallel = lambda do |msg=nil|
     cmd = "cat \"#{cmdfn}\""
     debug.call("tmpdir=#{tmpdir}")
     p msg if msg
-    err,stats = execute.call(cmd+"|parallel --results #{tmpdir} --joblog #{joblog}") # first try optimistically to run all jobs in parallel
-    if err != 0
+    if options[:debug]
+      # special debug mode to show errors
+      err,stats = execute.call("parallel < #{cmdfn}") # first try optimistically to run all jobs in parallel
+    else
+      err,stats = execute.call("parallel --results #{tmpdir} --joblog #{joblog} < #{cmdfn}") # first try optimistically to run all jobs in parallel
+    end
+    if err != 0 and not options[:debug]
       [4,1].each do |jobs|
         info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
         err,stats = execute.call(cmd+"|parallel  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
@@ -839,7 +842,8 @@ if create_archive
   execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
 end
 
-end # tmpdir
+# info.call "Leaving #{tmpdir}..."
+# end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 
