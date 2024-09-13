@@ -29,7 +29,11 @@ args = parser.parse_args()
 
 # Fetch GRM samples
 json_in = json.load(open(args.json))
-all_samples = json_in['samples']
+if 'samples' in json_in:
+    all_samples = json_in['samples']
+else:
+    # picks up gemma-wrapper K.json
+    all_samples = json_in['input']['samples']
 count_all_samples = len(all_samples)
 
 # Get samples to filter

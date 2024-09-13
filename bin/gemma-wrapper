@@ -265,7 +265,6 @@ info.call GEMMA_K_BANNER
 # Check gemma version
 begin
   gemma_command2 = options[:gemma_command]
-  # info.call "NOTE: gemma-wrapper is soon to be replaced"
 
   debug.call("Invoke #{gemma_command2}")
   GEMMA_INFO = `#{gemma_command2}`
@@ -450,7 +449,9 @@ JOBLOG  = HASH+"-parallel.log"
 # Create cache dir
 FileUtils::mkdir_p options[:cache_dir]
 
-# Dir.mktmpdir do |tmpdir| # tmpdir for GEMMA output - note that if there is an error here it is probably parallel failing!
+# tmpdir for GEMMA output - note that if there is an error here it is probably parallel failing!
+# if you fail to find the GEMMA error try the --no-parallel --debug switches
+# Dir.mktmpdir do |tmpdir|
 tmpdir = "/tmp/test" # fixate tmpdir for testing
 Dir.mkdir(tmpdir)
 
@@ -618,15 +619,26 @@ kinship = lambda do | chr = nil |
   end
 end
 
-reduce_samples = lambda do | kfn, pfn |
+reduce_samples = lambda do | chr, kfn, pfn |
   if USE_REDUCED_GRM
     # Next we make a reduced GRM and Pheno file
-    info.call "Reducing GRM! #{kfn}"
     if pfn
       info.call "Reducing pheno file! #{pfn}"
     else
       info.call "Writing pheno file from JSON!"
+      reduced_samples = json_in["input"]["samples-reduced"]
+      pfn = tmpdir+"/reduced_pheno.txt"
+      info.call "Writing #{pfn}"
+      File.open(pfn,"w") do |f|
+        reduced_samples.each do | k,v |
+          f.print "#{k}\t#{v}\n"
+        end
+      end
     end
+    info.call "Reducing GRM! #{kfn}"
+    newkfn = tmpdir+"/reduced_GRM-#{chr}.txt"
+    execute.call "python3 #{BIN}/grm-filter.py --json #{options[:input]} --sample-file #{pfn} #{kfn} > #{newkfn}"
+    kfn = newkfn
   end
   return kfn,pfn
 end
@@ -638,7 +650,7 @@ gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
   error.call "Do not use the GEMMA -k switch with gemma-wrapper - it is automatic!" if GEMMA_ARGS.include? '-k' # K is automatic
   error.call "Do not use the GEMMA -p switch with gemma-wrapper if you are using JSON phenotypes!" if pfn and USE_REDUCED_GRM
   error.call "Do not use the GEMMA -p switch with gemma-wrapper if you are using --phenotypes!" if pfn and GEMMA_ARGS.include? '-p'
-  kfn,pfn = reduce_samples.call(kfn,pfn)
+  kfn,pfn = reduce_samples.call(chr,kfn,pfn)
   # Update hash for each permutation
   hash = compute_hash.call(pfn)
   hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
