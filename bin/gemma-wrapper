@@ -597,7 +597,6 @@ if options[:input]
 end
 
 USE_REDUCED_GRM = (json_in and json_in["input"] and json_in["input"]["samples-reduced"])
-# p [json_in,json_in["input"],USE_REDUCED_GRM]
 
 # ---- Compute K
 kinship = lambda do | chr = nil |
@@ -627,7 +626,7 @@ reduce_samples = lambda do | chr, kfn, pfn |
     else
       debug.call "Writing pheno file from JSON!"
       reduced_samples = json_in["input"]["samples-reduced"]
-      pfn = tmpdir+"/reduced_pheno.txt"
+      pfn = tmpdir+"/reduced-pheno.txt.tmp"
       debug.call "Writing #{pfn}"
       File.open(pfn,"w") do |f|
         reduced_samples.each do | k,v |
@@ -636,7 +635,7 @@ reduce_samples = lambda do | chr, kfn, pfn |
       end
     end
     debug.call "Reducing GRM! #{kfn}"
-    newkfn = tmpdir+"/reduced-GRM-#{chr}.txt"
+    newkfn = tmpdir+"/reduced-GRM-#{chr}.txt.tmp"
     if not File.exist? newkfn # we assume it is identical
       execute.call "python3 #{BIN}/grm-filter.py --json #{options[:input]} --sample-file #{pfn} #{kfn} > #{newkfn}"
     end
@@ -718,55 +717,59 @@ else
   end
   # Permute
   if options[:permutate]
-    permute_pfn = options[:phenotypes] # can be nil
-    if USE_REDUCED_GRM
-      permute_pfn = tmpdir+"/reduced_pheno.txt"
-    end
-    ps = []
-    raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not permute_pfn
-    File.foreach(permute_pfn).with_index do |line, line_num|
-      ps << line
-    end
-    score_list = []
-    significant_str = []
-    suggestive_str = []
-    debug.call(options[:permutate],"x permutations")
-    (1..options[:permutate]).each do |permutation|
-      info.call("Iteration #{permutation}/#{options[:permutate]}")
-      # Create a shuffled phenotype file
-      file = File.open(tmpdir+"/phenotypes-#{permutation}","w")
-      tmp_pfn = file.path
-      ps.shuffle.each do | l |
-        file.print(l)
+    STATS = options[:cache_dir]+"/"+HASH+"-permutation-stats.txt"
+    File.open(STATS,"w") do |stats|
+      permute_pfn = options[:phenotypes] # can be nil
+      if USE_REDUCED_GRM
+        permute_pfn = tmpdir+"/reduced-pheno.txt.tmp"
       end
-      file.close
-      k_files.each do | chr, kfn | # call a GWA for each chromosome
-        gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
+      ps = []
+      raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not permute_pfn
+      File.foreach(permute_pfn).with_index do |line, line_num|
+        ps << line
       end
-      if options[:parallel]
-        invoke_parallel.call([permutation,significant_str,suggestive_str])
-      end
-      score_min = 1000.0
-      if not options[:slurm]
-        # p [:HEY,tmpdir,record[:files].last]
-        # print `ls -l #{tmpdir}`
-        assocfn = tmpdir + '/' + record[:files].last[2]
-        debug.call("Reading ",assocfn)
-        File.foreach(assocfn).with_index do |assoc, assoc_line_num|
-          if assoc_line_num > 0
-            value = assoc.strip.split(/\t/).last.to_f
-            score_min = value if value < score_min
+      score_list = []
+      significant_str = []
+      suggestive_str = []
+      debug.call(options[:permutate],"x permutations")
+      (1..options[:permutate]).each do |permutation|
+        info.call("Iteration #{permutation}/#{options[:permutate]}")
+        # Create a shuffled phenotype file
+        file = File.open(tmpdir+"/phenotypes-#{permutation}","w")
+        tmp_pfn = file.path
+        ps.shuffle.each do | l |
+          file.print(l)
+        end
+        file.close
+        k_files.each do | chr, kfn | # call a GWA for each chromosome
+          gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
+        end
+        if options[:parallel]
+          invoke_parallel.call([permutation,significant_str,suggestive_str])
+        end
+        score_min = 1000.0
+        if not options[:slurm]
+          # p [:HEY,tmpdir,record[:files].last]
+          # print `ls -l #{tmpdir}`
+          assocfn = tmpdir + '/' + record[:files].last[2]
+          debug.call("Reading ",assocfn)
+          File.foreach(assocfn).with_index do |assoc, assoc_line_num|
+            if assoc_line_num > 0
+              value = assoc.strip.split(/\t/).last.to_f
+              score_min = value if value < score_min
+            end
           end
         end
+        score_list << score_min
+        ls = score_list.sort
+        significant = ls[(ls.size - ls.size*0.95).floor]
+        suggestive = ls[(ls.size - ls.size*0.67).floor]
+        significant_str = ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
+        suggestive_str = ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
+        p significant_str
+        p suggestive_str
+        stats.print([permutation,significant_str,suggestive_str],"\n")
       end
-      score_list << score_min
-      ls = score_list.sort
-      significant = ls[(ls.size - ls.size*0.95).floor]
-      suggestive = ls[(ls.size - ls.size*0.67).floor]
-      significant_str = ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
-      suggestive_str = ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
-      p significant_str
-      p suggestive_str
     end
     exit 0
   end
