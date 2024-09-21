@@ -451,9 +451,11 @@ FileUtils::mkdir_p options[:cache_dir]
 
 # tmpdir for GEMMA output - note that if there is an error here it is probably parallel failing!
 # if you fail to find the GEMMA error try the --no-parallel --debug switches
-Dir.mktmpdir do |tmpdir|
-# tmpdir = "/tmp/test" # fixate tmpdir for testing
-# Dir.mkdir(tmpdir)
+# Dir.mktmpdir do |tmpdir|
+tmpdir = "/tmp/test" # fixate tmpdir for testing
+FileUtils.rm_rf(tmpdir) if File.exist?(tmpdir)
+
+Dir.mkdir(tmpdir)
 
 gemma_args << '-outdir'
 gemma_args << tmpdir
@@ -644,7 +646,7 @@ reduce_samples = lambda do | chr, kfn, pfn |
   return kfn,pfn
 end
 
-# ---- Run GWA
+# ---- Run GWA and return list of assoc filenames
 gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
   # if pfn is nil we assume the phenotype file is already on the CLI or in JSON
   record[:type] = "GWA"
@@ -660,8 +662,10 @@ gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
     args << [ '-loco', chr ] if chr != nil
     args << [ '-k', kfn, '-o', hashi ]
     args << [ '-p', pfn ] if pfn
+    args << [ '-n', '2' ] if USE_REDUCED_GRM # phenotype file is created
     invoke_gemma.call args,false,chr,permutation
   end
+  hashi
 end
 
 LOCO = options[:loco]
@@ -717,6 +721,7 @@ else
   end
   # Permute
   if options[:permutate]
+    ls = nil
     STATS = options[:cache_dir]+"/"+HASH+"-permutation-stats.txt"
     File.open(STATS,"w") do |stats|
       permute_pfn = options[:phenotypes] # can be nil
@@ -741,8 +746,9 @@ else
           file.print(l)
         end
         file.close
+        assoc_files = []
         k_files.each do | chr, kfn | # call a GWA for each chromosome
-          gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
+          assoc_files.push gwas.call(chr,"/tmp/"+kfn,tmp_pfn,permutation)
         end
         if options[:parallel]
           invoke_parallel.call([permutation,significant_str,suggestive_str])
@@ -751,12 +757,18 @@ else
         if not options[:slurm]
           # p [:HEY,tmpdir,record[:files].last]
           # print `ls -l #{tmpdir}`
-          assocfn = tmpdir + '/' + record[:files].last[2]
-          debug.call("Reading ",assocfn)
-          File.foreach(assocfn).with_index do |assoc, assoc_line_num|
-            if assoc_line_num > 0
-              value = assoc.strip.split(/\t/).last.to_f
-              score_min = value if value < score_min
+          p assoc_files
+          assoc_files.each do | assocfn |
+            # assocfn = tmpdir + '/' + entry[2]
+            debug.call("Reading ",assocfn)
+            File.foreach(tmpdir+"/"+assocfn+".assoc.txt").with_index do |assoc, assoc_line_num|
+              if assoc_line_num > 0 # skip header
+                p_lrt = assoc.strip.split(/\t/).last.to_f
+                if p_lrt > 0.0 and p_lrt < score_min
+                  score_min = p_lrt
+                  p [:min,score_min,:p_lrt,p_lrt,assocfn]
+                end
+              end
             end
           end
         end
@@ -766,11 +778,13 @@ else
         suggestive = ls[(ls.size - ls.size*0.67).floor]
         significant_str = ["95 percentile (significant) ",significant,(-Math.log10(significant)).round(1)]
         suggestive_str = ["67 percentile (suggestive)  ",suggestive,(-Math.log10(suggestive)).round(1)]
+        p ls
         p significant_str
         p suggestive_str
         stats.print([permutation,significant_str,suggestive_str],"\n")
       end
-    end
+      stats.print(ls)
+    end # stats
     exit 0
   end
 end
@@ -846,7 +860,7 @@ if create_archive
     if options[:keep]
       keepdir = tmpdir + "-keep"
       FileUtils.mkdir(keepdir)
-      execute.call("cp -vau #{tmpdir}/*.txt #{tmpdir}/*.json #{tmpdir}/*.log #{keepdir}")
+      execute.call("cp -vau #{tmpdir}/*.txt #{tmpdir}/*.json #{keepdir}")
     end
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
@@ -861,7 +875,7 @@ if create_archive
   execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
 end
 
-end # tmpdir
+# end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 

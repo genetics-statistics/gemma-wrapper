@@ -6,7 +6,9 @@
 # stdout. Kind of a grep on sample names. It will also ERROR/WARN if
 # samples are missing or not overlapping.
 #
-# If -n is passed in the column it checked for missing values and drops those samples.
+# If -n is passed in the column it checked for missing values and
+# create a 'samples-reduced' list in the JSON that is picked up by
+# gemma-wrapper.
 #
 # Note that GEMMA can take multi-column phenotype files and picks with the -n switch
 # See also https://issues.genenetwork.org/topics/data/R-qtl2-format-notes
@@ -28,7 +30,7 @@ import pandas as pd
 parser = argparse.ArgumentParser(description='Turn R/qtl2 type pheno format into GEMMA pheno format')
 parser.add_argument('--json',default="BXD.json",help="JSON file for sample names (default BXD.json)")
 parser.add_argument('--header', action=argparse.BooleanOptionalAction,help="Use the header line or not")
-parser.add_argument('-n',type=int, default=0,help="Column number to check and skip missing values (default 1)")
+parser.add_argument('-n',type=int, default=0,help="Column number (1..) to check and skip missing values (default disabled)")
 parser.add_argument('file',help="R/qtl pheno file")
 args = parser.parse_args()
 
@@ -54,6 +56,7 @@ if sampleset.difference(csvset):
     print("We read the following from the CSV file:")
     print(sorted(csvset))
     print(f"ERROR: sets differ {sampleset.difference(csvset)}",file=sys.stderr)
+    print(f"\nERROR: this command has errors!")
     sys.exit(2)
 
 if csvset.symmetric_difference(sampleset):
@@ -61,12 +64,16 @@ if csvset.symmetric_difference(sampleset):
 
 if col > 0:
     js["samples-column"] = col
-    # Walk the column
+    # Scan the column and collect sample names that are not NA in the samples_reduced list
     samples_reduced = {}
-    for name,value in zip(csv.index, csv[1]):
+    # print(csv)
+    header = csv.columns
+    trait = header[col]
+    for name,value in zip(csv.index, csv[header[col-1]]):
         if not math.isnan(value):
-            print(name,value)
+            # print(name,value)
             samples_reduced[name] = value
+    js['trait'] = trait
     js['samples-reduced'] = samples_reduced
     js['numsamples-reduced'] = len(samples_reduced)
 
@@ -84,4 +91,4 @@ with open(outjs,"w") as f:
 # print(json.dumps(js).encode())
 
 print(f"Wrote GEMMA pheno {len(l)} from {len(samples)} with genometypes (rows) and {len(out.columns)} collections (cols)!",file=sys.stderr)
-print(f"Wrote {outjs}")
+print(f"Wrote {outjs}",file=sys.stderr)

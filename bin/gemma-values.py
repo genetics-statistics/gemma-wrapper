@@ -17,10 +17,12 @@ import argparse
 import json
 import lmdb
 import math
+import re
 from struct import *
 
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
+parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=False,help="Sort on significance")
 parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name")
 args = parser.parse_args()
 
@@ -31,11 +33,13 @@ Y=ord('Y')
 snps = {}
 if args.anno:
     for line in open(args.anno, 'r'):
-        snp,pos,chrom = line.rstrip('\n').split(", ")
+        snp,pos,chrom = re.split(r"\s+",line.rstrip('\n'))
         key = chrom+":"+pos
         snps[key] = snp
 
-print("chr,pos,marker,af,beta,se,l_mle,-logP")
+print("chr,pos,marker,af,beta,se,l_mle,l_lrt,-logP")
+
+result = []
 with lmdb.open(args.lmdb,subdir=False) as env:
     with env.begin() as txn:
         with txn.cursor() as curs:
@@ -59,5 +63,13 @@ with lmdb.open(args.lmdb,subdir=False) as env:
                     if args.anno:
                         key2 = chr+":"+str(pos)
                         snp = snps[key2]
+                    result.append([chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),
+                                    str(round(se,4)),str(round(l_mle,4)),str(round(p_lrt,4)),str(round(minusLogP,2))])
 
-                    print(",".join([chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),str(round(se,4)),str(l_mle),str(round(minusLogP,2))]))
+if args.sort:
+    result = sorted(result, key=lambda x: x[8], reverse=True)
+
+for l in result:
+    print(",".join(l))
+    #      print(",".join([chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),
+    #              str(round(se,4)),str(round(l_mle,4)),str(round(p_lrt,4)),str(round(minusLogP,2))]))

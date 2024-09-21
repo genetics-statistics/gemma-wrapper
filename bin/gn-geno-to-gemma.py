@@ -25,7 +25,7 @@ args = parser.parse_args()
 genofn = args.file
 
 meta["genofile"] = genofn
-translate = { "A": "0", "D": "0", "B": "1", "H": "0.5", "U": "NA" }
+translate = { "A": "0", "D": "0", "B": "2", "H": "1", "U": "NA" }
 header = []
 
 with open(genofn) as f:
