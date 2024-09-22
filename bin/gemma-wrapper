@@ -824,7 +824,7 @@ record[:run_stats] = run_stats
 
 if create_archive
   if DO_COMPUTE_GWA
-    LMDB = tmpdir+"/"+HASH+'.mdb'
+    LMDB = tmpdir+"/"+HASH+'-gemma-GWA.mdb'
     # create lmdb database - we call out into a python script for that.
     # first create a JSON record
 

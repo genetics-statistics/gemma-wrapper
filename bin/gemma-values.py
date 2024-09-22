@@ -17,7 +17,9 @@ import argparse
 import json
 import lmdb
 import math
+import os
 import re
+from pathlib import Path
 from struct import *
 
 from signal import signal, SIGPIPE, SIG_DFL # avoid broken pipe error
@@ -26,7 +28,7 @@ signal(SIGPIPE,SIG_DFL)
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
 parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=False,help="Sort on significance")
-parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name")
+parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name (also can take tar.xz)")
 args = parser.parse_args()
 
 # ASCII
@@ -42,8 +44,17 @@ if args.anno:
 
 print("chr,pos,marker,af,beta,se,l_mle,l_lrt,-logP")
 
+fn = args.lmdb
+if fn.endswith('.xz'):
+    print(f"Unpack {fn}...",file=sys.stderr)
+    os.system(f"tar xvJf {fn} > /dev/null")
+    fn = Path(Path(fn).stem).stem+".mdb"
+
+print(f"Reading {fn}...",file=sys.stderr)
+# sys.exit(1)
+
 result = []
-with lmdb.open(args.lmdb,subdir=False) as env:
+with lmdb.open(fn,subdir=False) as env:
     with env.begin() as txn:
         with txn.cursor() as curs:
             # quick check and output of keys
