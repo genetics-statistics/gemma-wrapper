@@ -68,8 +68,9 @@ if col > 0:
     samples_reduced = {}
     # print(csv)
     header = csv.columns
-    trait = header[col]
-    for name,value in zip(csv.index, csv[header[col-1]]):
+    col1 = col-2
+    trait = header[col1]
+    for name,value in zip(csv.index, csv[trait]):
         if not math.isnan(value):
             # print(name,value)
             samples_reduced[name] = value

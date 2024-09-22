@@ -20,6 +20,9 @@ import math
 import re
 from struct import *
 
+from signal import signal, SIGPIPE, SIG_DFL # avoid broken pipe error
+signal(SIGPIPE,SIG_DFL)
+
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
 parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=False,help="Sort on significance")
