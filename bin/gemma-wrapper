@@ -870,9 +870,12 @@ if create_archive
       execute.call "cp -vau #{tmpdir}/*.txt #{Dir.tmpdir}" # note: don't copy .log files - it confuses parallel
     end
   end
-  # File.write(tmpdir+"/"+HASH+"-gemma-wrapper-output.json",json_out.call)
   info.call "Creating archive #{ARCHIVE}..."
-  execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
+  if options[:lmdb]
+    execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{LMDB} --transform='s,^#{tmpdir[1..-1]}/,,'"
+  else
+    execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json --transform='s,^#{tmpdir[1..-1]}/,,'"
+  end
 end
 
 # end # tmpdir
