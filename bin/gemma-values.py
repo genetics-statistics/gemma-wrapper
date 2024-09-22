@@ -28,7 +28,7 @@ signal(SIGPIPE,SIG_DFL)
 
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
-parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=False,help="Sort on significance")
+parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=True,help="Sort on significance")
 parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name (also can take tar.xz)")
 args = parser.parse_args()
 
