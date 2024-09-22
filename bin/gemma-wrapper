@@ -69,6 +69,7 @@ end
 hashme = nil
 
 require 'digest/sha1'
+require 'enumerator'
 require 'fileutils'
 require 'optparse'
 require 'open3'
@@ -85,7 +86,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, phenotypes: nil, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, phenotypes: nil, phenotype_column: 1, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -98,6 +99,10 @@ opts = OptionParser.new do |o|
   o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
     options[:phenotypes] = phenotypes
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
+  end
+
+  o.on('--phenotype-column n', Integer, 'Get column # GEMMA style (base 1)') do |col|
+    options[:phenotype_column] = col
   end
 
   o.on('--loco', 'Run full leave-one-chromosome-out (LOCO)') do |b|
@@ -331,9 +336,9 @@ geno_idx = gemma_args.index '-g'
 raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
 pheno_idx = gemma_args.index '-p'
 
-if DO_COMPUTE_GWA and options[:phenotypes]
-  raise "Did not expect GEMMA -p phenotype whith permutations (only use --permutate-phenotypes)" if pheno_idx
-end
+# if DO_COMPUTE_GWA and options[:phenotypes]
+#   raise "Did not expect GEMMA -p phenotype whith permutations (they are in the JSON file)" if pheno_idx
+# end
 
 matches = {
   chr: [:string, /-loco (\S+) /],
@@ -663,6 +668,8 @@ gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
     args << [ '-k', kfn, '-o', hashi ]
     args << [ '-p', pfn ] if pfn
     args << [ '-n', '2' ] if USE_REDUCED_GRM # phenotype file is created
+    debug.call(args)
+    debug.call([:pfn,pfn])
     invoke_gemma.call args,false,chr,permutation
   end
   hashi
@@ -675,6 +682,28 @@ if LOCO
   end
 end
 
+def shuffle_ps(lines,column)
+  select = lines.enum_for(:each_with_index).map { |l,i|
+    value = l.strip.split(/\t/)[column-1]
+    ( value != "NA" ? value : false )
+  }
+  # print select
+  reduced = select.filter { |val| val != false  }
+  # print reduced
+  shuffled = reduced.shuffle
+  # print shuffled
+  # plug them back in
+  shuf2 = select.map { |v| (v ? shuffled.pop : "NA") }
+  # print "\n"
+  # print shuf2
+  # print shuffled
+  # col = reduced.map { |l| l.strip.split(/\t/)[column] }
+  # col2 = col.shuffle
+  # print(col2)
+  # shuffled = select.map { |is_value| (is_value ? col2.pop : "NA")}
+  # exit 2
+  shuf2
+end
 
 if DO_COMPUTE_KINSHIP
   # compute K
@@ -706,21 +735,24 @@ else
 
   if LOCO
     k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
-    k_files.each do | chr, kfn | # call a GWA for each chromosome
-      kfn2 = options[:cache_dir]+"/"+kfn
-      if not File.exist?(kfn2) and json_in["archive"]
-        # we aim to unpack the GRM archive once on reuse
-        archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-        execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
+  end
+  if not options[:permutate]
+    if LOCO
+      k_files.each do | chr, kfn | # call a GWA for each chromosome
+        kfn2 = options[:cache_dir]+"/"+kfn
+        if not File.exist?(kfn2) and json_in["archive"]
+          # we aim to unpack the GRM archive once on reuse
+          archive_grm = options[:cache_dir]+"/"+json_in["archive"]
+          execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
+        end
+        gwas.call(chr,kfn2)
       end
-      gwas.call(chr,kfn2)
+    else
+      kfn = json_in["files"][0][2]
+      gwas.call(nil,options[:cache_dir]+"/"+kfn)
     end
   else
-    kfn = json_in["files"][0][2]
-    gwas.call(nil,options[:cache_dir]+"/"+kfn)
-  end
-  # Permute
-  if options[:permutate]
+    # Permute @@
     ls = nil
     STATS = options[:cache_dir]+"/"+HASH+"-permutation-stats.txt"
     File.open(STATS,"w") do |stats|
@@ -729,22 +761,23 @@ else
         permute_pfn = tmpdir+"/reduced-pheno.txt.tmp"
       end
       ps = []
-      raise "You should supply --permute-phenotypes with gemma-wrapper --permutate" if not permute_pfn
+      raise "You should supply --phenotypes with gemma-wrapper --permutate" if not permute_pfn
       File.foreach(permute_pfn).with_index do |line, line_num|
         ps << line
       end
       score_list = []
       significant_str = []
       suggestive_str = []
+      column = options[:phenotype_column]
       debug.call(options[:permutate],"x permutations")
       (1..options[:permutate]).each do |permutation|
         info.call("Iteration #{permutation}/#{options[:permutate]}")
         # Create a shuffled phenotype file
         file = File.open(tmpdir+"/phenotypes-#{permutation}","w")
         tmp_pfn = file.path
-        ps.shuffle.each do | l |
-          file.print(l)
-        end
+        shuffle_ps(ps,column).each { |l|
+          file.print(l,"\n")
+        }
         file.close
         assoc_files = []
         k_files.each do | chr, kfn | # call a GWA for each chromosome
