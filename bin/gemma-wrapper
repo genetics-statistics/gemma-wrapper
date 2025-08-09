@@ -28,7 +28,7 @@ GEMMA wrapper example:
 
     LMM's using the K's captured in K.json using the --input switch
 
-      gemma-wrapper --json --loco --input K.json -- \
+      gemma-wrapper --json --lmdb --loco --input K.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
@@ -724,7 +724,12 @@ if DO_COMPUTE_KINSHIP
   end
 else
   # DO_COMPUTE_GWA
-  ARCHIVE = options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
+  ARCHIVE =
+    if options[:name] and options[:trait]
+      options[:cache_dir]+"/"+HASH+"-"+options[:name]+"-"+options[:trait]+"-gemma-GWA.tar.xz"
+    else
+      options[:cache_dir]+"/"+HASH+"-gemma-GWA.tar.xz"
+    end
   if options[:lmdb] and File.exist? ARCHIVE and not options[:force]
     info.call "#{ARCHIVE} CACHE HIT!"
     print json_out.call # short cut because lmdb is self contained, also for LOCO
@@ -880,14 +885,23 @@ if create_archive
       loco: options[:loco],
       url: "https://genenetwork.org/show_trait?trait_id="+options[:trait]+"&dataset="+options[:name],
       archive_GRM: json_in["archive"],
-      archive_GWA: File.basename(ARCHIVE),
-    })
-    if options[:id] and options[:id] =~ /,/ # this is GN specific
-      dataid,probesetid,probesetfreezeid = options[:id].split(",")
-      meta[:dataid] = dataid.to_i
-      meta[:probesetid] = probesetid.to_i
-      meta[:probesetfreezeid] = probesetfreezeid.to_i
+      archive_GWA: File.basename(ARCHIVE)
+                      })
+    if options[:name] == "BXDPublish"
+      meta = meta.merge({
+                          table: "PublishData",
+                          traitid: options[:trait].to_i,
+                          dataid: options[:id].to_i
+                        })
+    else
+      if options[:id] and options[:id] =~ /,/ # this is GN specific
+        dataid,probesetid,probesetfreezeid = options[:id].split(",")
+        meta[:dataid] = dataid.to_i
+        meta[:probesetid] = probesetid.to_i
+        meta[:probesetfreezeid] = probesetfreezeid.to_i
+      end
     end
+
     record[:meta] = meta
     metafn = tmpdir+"/"+HASH+"-meta.json"
     File.write(metafn,record.to_json)
