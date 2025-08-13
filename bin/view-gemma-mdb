@@ -29,6 +29,8 @@ signal(SIGPIPE,SIG_DFL)
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
 parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=True,help="Sort on significance")
+parser.add_argument('--meta',action=argparse.BooleanOptionalAction,default=False,help="Show meta data record")
+
 parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name (also can take tar.xz)")
 args = parser.parse_args()
 
@@ -43,12 +45,17 @@ if args.anno:
         key = chrom+":"+pos
         snps[key] = snp
 
-print("chr,pos,marker,af,beta,se,l_mle,l_lrt,-logP")
+if not args.meta:
+    print("name,id,chr,pos,marker,af,beta,se,l_mle,l_lrt,-logP")
 
 with tempfile.TemporaryDirectory() as tmpdir:
     print(f"Created temporary directory {tmpdir}",file=sys.stderr)
 
     fn = args.lmdb
+    if not fn:
+        print("ERROR: Use --help, bailing out")
+        sys.exit(1)
+
     if fn.endswith('.xz'):
         print(f"Unpack {fn}...",file=sys.stderr)
         os.system(f"tar xvJf {fn} -C {tmpdir} > /dev/null")
@@ -61,6 +68,16 @@ with tempfile.TemporaryDirectory() as tmpdir:
     result = []
     with lmdb.open(fn,subdir=False) as env:
         with env.begin() as txn:
+            # handle metadata
+            meta_str = txn.get("meta".encode()).decode()
+            if args.meta:
+                print(meta_str)
+                sys.exit(0)
+
+            meta = json.loads(meta_str)
+            name = meta['gemma-wrapper']['meta']['name']
+            trait = meta['gemma-wrapper']['meta']['trait']
+            # iterate all rows
             with txn.cursor() as curs:
                 # quick check and output of keys
                 for key in list(txn.cursor().iternext(values=False)):
@@ -85,7 +102,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
                                 snp = snps[key2]
                             else:
                                 print(f"Can not find {key2} in anno",file=sys.stderr)
-                        result.append([chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),
+                        result.append([name,trait,chr,str(pos),snp,str(round(af,4)),str(round(effect,4)),
                                        str(round(se,4)),str(round(l_mle,4)),str(round(p_lrt,4)),str(round(minusLogP,2))])
 
 if args.sort:
