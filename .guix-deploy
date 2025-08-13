@@ -10,4 +10,4 @@ echo gemma-wrapper --force --json \
         -gk
 
 # using Ruby2 because lmdb ext builder picks that
-guix shell -L ~/guix-bioinformatics -C -F coreutils binutils ruby gemma-gn2 parallel which vim less xz tar python python-lmdb python-cffi time python-pandas
+guix shell -L ~/guix-past/modules -L ~/guix-bioinformatics -C -N -F coreutils binutils ruby gemma-gn2 parallel which vim less xz tar python python-lmdb python-cffi time python-pandas curl jq

@@ -52,7 +52,9 @@ with tempfile.TemporaryDirectory() as tmpdir:
     if fn.endswith('.xz'):
         print(f"Unpack {fn}...",file=sys.stderr)
         os.system(f"tar xvJf {fn} -C {tmpdir} > /dev/null")
-        fn = tmpdir+"/"+Path(Path(fn).stem).stem+".mdb"
+        # fn = tmpdir+"/"+Path(Path(fn).stem).stem+".mdb"
+        files = Path(tmpdir).glob("*.mdb")
+        fn = str(next(files)) # note only the first match is processed
 
     print(f"Reading {fn}...",file=sys.stderr)
 
