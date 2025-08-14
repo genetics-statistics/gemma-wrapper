@@ -89,17 +89,18 @@ ARGV.each do |fn|
         if options[:anno] and snps.has_key?(location)
           snp = snps[location]
         end
-        effect = -beta/2.0
+        effect = -(beta/2.0)
         minusLogP = -Math.log10(p_lrt)
-        result.push [chr, pos, snp, af, p_lrt, effect, minusLogP]
+        result.push [chr, pos, snp, af.round(3), se.round(3), effect.round(3), minusLogP.round(2)]
       end
       env.close
+      p ["name","trait","chr","pos","af","se","effect","-LogP"]
       if options[:sort]
         $stderr.print("Sorting...\n")
-        result = result.sort_by { |rec| rec[4] }
+        result = result.sort_by { |rec| rec[rec.size-1] }.reverse
       end
 
-      result.each { |l| p [name,trait].append(l) }
+      result.each { |l| p [name,trait] + l }
     end
   end
 end # tmpdir

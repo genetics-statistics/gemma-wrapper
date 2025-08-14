@@ -106,7 +106,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
                                        str(round(se,4)),str(round(l_mle,4)),str(round(p_lrt,4)),str(round(minusLogP,2))])
 
 if args.sort:
-    result = sorted(result, key=lambda x: x[10], reverse=True)
+    result = sorted(result, key=lambda x: x[len(x)-1], reverse=True)
 
 for l in result:
     print(",".join(l))
