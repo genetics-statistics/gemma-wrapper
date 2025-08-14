@@ -28,7 +28,7 @@ signal(SIGPIPE,SIG_DFL)
 
 parser = argparse.ArgumentParser(description="Fetch GEMMA lmdb values.")
 parser.add_argument('--anno',required=False,help="SNP annotation file with the format 'rs31443144, 3010274, 1'")
-parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=True,help="Sort on significance")
+parser.add_argument('--sort',action=argparse.BooleanOptionalAction,default=True,help="Sort on significance (default is True)")
 parser.add_argument('--meta',action=argparse.BooleanOptionalAction,default=False,help="Show meta data record")
 
 parser.add_argument('lmdb',nargs='?',help="GEMMA lmdb db file name (also can take tar.xz)")
@@ -106,7 +106,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
                                        str(round(se,4)),str(round(l_mle,4)),str(round(p_lrt,4)),str(round(minusLogP,2))])
 
 if args.sort:
-    result = sorted(result, key=lambda x: x[8], reverse=True)
+    result = sorted(result, key=lambda x: x[10], reverse=True)
 
 for l in result:
     print(",".join(l))
