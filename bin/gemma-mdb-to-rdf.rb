@@ -24,6 +24,10 @@ opts = OptionParser.new do |o|
     raise "Annotation input file #{anno} does not exist" if !File.exist?(anno)
   end
 
+  o.on("--meta", "Output metadata only") do |b|
+    options[:meta] = b
+  end
+
   o.on("--sort", "Sort output by significance") do |b|
     options[:sort] = b
   end
@@ -61,6 +65,10 @@ if options[:anno]
   end
 end
 
+def rdf_normalize(uri)
+  uri.gsub(/-/,"_")
+end
+
 ARGV.each do |fn|
   Dir.mktmpdir do |tmpdir|
     $stderr.print("Parsing #{fn}...\n")
@@ -75,10 +83,19 @@ ARGV.each do |fn|
       maindb = env.database
       db = env.database(File.basename(mdb))
 
+      if options[:meta]
+        print db['meta']
+        env.close
+        exit 0
+      end
+
       meta = JSON.parse(db['meta'])
+
       name = meta['gemma-wrapper']['meta']['name']
       trait = meta['gemma-wrapper']['meta']['trait']
-
+      gwa = meta['gemma-wrapper']['meta']['archive_GWA']
+      loco = meta['gemma-wrapper']['meta']['loco']
+      xtime = meta['gemma-wrapper']['input']['time']
       $stderr.print("Dataset for #{name} #{trait}\n")
       result = []
       db.each do | key,value |
@@ -91,16 +108,69 @@ ARGV.each do |fn|
         end
         effect = -(beta/2.0)
         minusLogP = -Math.log10(p_lrt)
-        result.push [chr, pos, snp, af.round(3), se.round(3), effect.round(3), minusLogP.round(2)]
+        # p [p_lrt,minusLogP]
+        minusLogP = 0.0 if p_lrt.nan?
+        rec = {chr: chr, pos: pos, snp: rdf_normalize(snp).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
+        result.push rec
       end
       env.close
-      p ["name","trait","chr","pos","af","se","effect","-LogP"]
       if options[:sort]
         $stderr.print("Sorting...\n")
-        result = result.sort_by { |rec| rec[rec.size-1] }.reverse
+        result = result.sort_by { |rec| rec[:logP] }.reverse
       end
 
-      result.each { |l| p [name,trait] + l }
+      print """
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX gn: <http://genenetwork.org/id/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX gnc: <http://genenetwork.org/category/>
+PREFIX gnt: <http://genenetwork.org/term/>
+PREFIX sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
+PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
+"""
+
+      prefix = "GEMMAMapped"
+      hash = gwa[32..39]
+      postfix = rdf_normalize(gwa[41..-8])+"_"+hash
+      s_loco = (loco ? "LOCO" : "")
+      id = "gn:#{prefix}_#{s_loco}_#{postfix}"
+      print """#{id} a gnt:mappedTrait;
+      rdfs:label \"GEMMA #{name} trait #{trait} mapped with LOCO (defaults)\";
+      gnt:trait gn:publishXRef_#{trait};
+      gnt:loco #{loco};
+      gnt:time \"#{xtime}\";
+      gnt:belongsToGroup gn:setBxd;
+      gnt:name \"#{name}\";
+      gnt:traitId \"#{trait}\";
+      skos:altLabel \"BXD_#{trait}\".
+"""
+
+      first = true
+      result.each do |rec|
+        # we always show the highest hit
+        locus = rec[:snp]
+        locus="unknown" if locus == "?"
+        # for the rest of the hits make sure they are significant and have a snp id:
+        if not first
+          break if rec[:logP] < 4.0
+          next if locus == "unknown"
+        end
+      # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
+        print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
+      gnt:mappedSnp #{id};
+      gnt:locus gn:#{rec[:snp]};
+      gnt:lodScore #{rec[:logP]};
+      gnt:af #{rec[:af]};
+      gnt:effect #{rec[:effect]}.
+"""
+        first = false
+      end
     end
   end
 end # tmpdir
