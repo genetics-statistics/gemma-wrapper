@@ -1,11 +1,9 @@
 #!/usr/bin/env ruby
 #
-# To run this you'll need to do:
+# If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
 #
 #   env GEM_PATH=tmp/ruby GEM_HOME=tmp/ruby gem install lmdb
-#   env GEM_PATH=tmp/ruby GEM_HOME=tmp/ruby ruby -e "require 'lmdb'"
-#
-# until I fixed the package.
+#   env GEM_PATH=tmp/ruby ruby -e "require 'lmdb'"
 #
 # Pjotr Prins (c) 2025
 
@@ -109,7 +107,7 @@ ARGV.each do |fn|
         effect = -(beta/2.0)
         minusLogP = -Math.log10(p_lrt)
         # p [p_lrt,minusLogP]
-        minusLogP = 0.0 if p_lrt.nan?
+        minusLogP = 0.0 if p_lrt.nan? # not correct, but main thing is it does not show
         rec = {chr: chr, pos: pos, snp: rdf_normalize(snp).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
         result.push rec
       end
