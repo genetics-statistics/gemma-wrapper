@@ -164,7 +164,7 @@ PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
       # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
         print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
       gnt:mappedSnp #{id};
-      gnt:locus gn:#{rec[:snp]};
+      gnt:locus gn:#{locus};
       gnt:lodScore #{rec[:logP]};
       gnt:af #{rec[:af]};
       gnt:effect #{rec[:effect]}.
