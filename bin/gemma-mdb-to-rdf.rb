@@ -118,26 +118,26 @@ ARGV.each do |fn|
       end
 
       print """
-PREFIX dct: <http://purl.org/dc/terms/>
-PREFIX gn: <http://genenetwork.org/id/>
-PREFIX owl: <http://www.w3.org/2002/07/owl#>
-PREFIX gnc: <http://genenetwork.org/category/>
-PREFIX gnt: <http://genenetwork.org/term/>
-PREFIX sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#>
-PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-PREFIX qb: <http://purl.org/linked-data/cube#>
-PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
-PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix gn: <http://genenetwork.org/id/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix gnc: <http://genenetwork.org/category/> .
+@prefix gnt: <http://genenetwork.org/term/> .
+@prefix sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix qb: <http://purl.org/linked-data/cube#> .
+@prefix xkos: <http://rdf-vocabulary.ddialliance.org/xkos#> .
+@prefix pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/> .
 """
 
-      prefix = "GEMMAMapped"
+      @prefix = "GEMMAMapped"
       hash = gwa[32..39]
       postfix = rdf_normalize(gwa[41..-8])+"_"+hash
       s_loco = (loco ? "LOCO" : "")
-      id = "gn:#{prefix}_#{s_loco}_#{postfix}"
+      id = "gn:#{@prefix}_#{s_loco}_#{postfix}"
       print """#{id} a gnt:mappedTrait;
       rdfs:label \"GEMMA #{name} trait #{trait} mapped with LOCO (defaults)\";
       gnt:trait gn:publishXRef_#{trait};
