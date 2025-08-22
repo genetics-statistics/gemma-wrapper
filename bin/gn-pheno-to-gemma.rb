@@ -8,6 +8,9 @@
 #   curl http://127.0.0.1:8091/dataset/bxd-publish/values/41022003.json > 41022003-pheno.json
 #   gn-pheno-to-gemma.rb --phenotypes 41022003-pheno.json --geno-json BXD.geno.json > BXD_pheno.txt
 #
+# Note that gn-pheno-to-gemma is no longer needed as gemma-wrapper does the same thing to store trait
+# data also in lmdb. Until we have millions of trait values this should be fine.
+#
 # Pjotr Prins (c) 2025
 
 require 'optparse'
