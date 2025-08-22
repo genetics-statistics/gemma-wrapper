@@ -15,6 +15,8 @@ import argparse
 import json
 import lmdb
 from struct import *
+import numpy as np
+import scipy.stats as stat
 
 parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lmdb db.')
 parser.add_argument('--db',default="gemma.mdb",help="DB name")
@@ -35,6 +37,20 @@ hits = [] # track hits
 
 if args.meta:
     meta["gemma-wrapper"] = json.load(open(args.meta))
+
+# --- Load the traits and do some statistics
+named_values = meta["gemma-wrapper"]["meta"]["trait_values"]
+values = []
+for ind,value in named_values.items():
+    values.append(value)
+
+
+a =  np.array(values)
+# print("@@@@@@",values," mean=",a.mean()," std=",a.std()," kurtosis=",stat.kurtosis(a)," skew=",stat.skew(a))
+meta["mean"] = round(a.mean(),4)
+meta["std"] = round(a.std(),4)
+meta["skew"] = round(stat.skew(a),4)
+meta["kurtosis"] = round(stat.kurtosis(a),4)
 
 with lmdb.open(args.db,subdir=False) as env:
     for fn in args.files:
