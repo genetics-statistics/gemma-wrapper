@@ -47,6 +47,7 @@ for ind,value in named_values.items():
 
 a =  np.array(values)
 # print("@@@@@@",values," mean=",a.mean()," std=",a.std()," kurtosis=",stat.kurtosis(a)," skew=",stat.skew(a))
+meta["nind"] = round(a.size,4)
 meta["mean"] = round(a.mean(),4)
 meta["std"] = round(a.std(),4)
 meta["skew"] = round(stat.skew(a),4)
