@@ -104,11 +104,16 @@ ARGV.each do |fn|
 
       meta = JSON.parse(db['meta'])
 
-      name = meta['gemma-wrapper']['meta']['name']
+      name  = meta['gemma-wrapper']['meta']['name']
       trait = meta['gemma-wrapper']['meta']['trait']
-      gwa = meta['gemma-wrapper']['meta']['archive_GWA']
-      loco = meta['gemma-wrapper']['meta']['loco']
+      gwa   = meta['gemma-wrapper']['meta']['archive_GWA']
+      loco  = meta['gemma-wrapper']['meta']['loco']
       xtime = meta['gemma-wrapper']['input']['time']
+      nind  = meta['nind']
+      mean  = meta['mean']
+      std   = meta['std']
+      skew  = meta['skew']
+      kurtosis  = meta['kurtosis']
       $stderr.print("Dataset for #{name} #{trait}\n")
       result = []
       db.each do | key,value |
@@ -145,6 +150,11 @@ ARGV.each do |fn|
       gnt:belongsToGroup gn:setBxd;
       gnt:name \"#{name}\";
       gnt:traitId \"#{trait}\";
+      gnt:nind #{nind};
+      gnt:mean #{mean};
+      gnt:std #{std};
+      gnt:skew #{skew};
+      gnt:kurtosis #{kurtosis};
       skos:altLabel \"BXD_#{trait}\".
 """
 
