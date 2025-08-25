@@ -159,11 +159,12 @@ ARGV.each do |fn|
           break if rec[:logP] < 4.0
           next if locus == "unknown"
         end
-      # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
+        # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
+        # FIXME locus.capitalize
         print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
       gnt:mappedSnp #{id};
-      gnt:locus gn:#{locus};
-      gnt:lodScore #{rec[:logP]};
+      gnt:locus gn:#{locus.capitalize};
+      gnt:lodScore #{rec[:logP].round(1)};
       gnt:af #{rec[:af]};
       gnt:effect #{rec[:effect]}.
 """
