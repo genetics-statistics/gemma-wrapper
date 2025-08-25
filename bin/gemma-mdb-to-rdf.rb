@@ -30,6 +30,9 @@ opts = OptionParser.new do |o|
     options[:sort] = b
   end
 
+  o.on_tail('--header', 'Write header') do
+    options[:header] = true
+  end
 
   # o.on("-v", "--verbose", "Run verbosely") do |v|
   #   options[:verbose] = true
@@ -52,6 +55,18 @@ if options[:show_help]
   print opts
   # print USAGE
   exit 1
+end
+
+if options[:header]
+      print """
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix gn: <http://genenetwork.org/id/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix gnc: <http://genenetwork.org/category/> .
+@prefix gnt: <http://genenetwork.org/term/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+"""
 end
 
 snps = {}
@@ -116,22 +131,6 @@ ARGV.each do |fn|
         $stderr.print("Sorting...\n")
         result = result.sort_by { |rec| rec[:logP] }.reverse
       end
-
-      print """
-@prefix dct: <http://purl.org/dc/terms/> .
-@prefix gn: <http://genenetwork.org/id/> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
-@prefix gnc: <http://genenetwork.org/category/> .
-@prefix gnt: <http://genenetwork.org/term/> .
-@prefix sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#> .
-@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix qb: <http://purl.org/linked-data/cube#> .
-@prefix xkos: <http://rdf-vocabulary.ddialliance.org/xkos#> .
-@prefix pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/> .
-"""
 
       @prefix = "GEMMAMapped"
       hash = gwa[32..39]
