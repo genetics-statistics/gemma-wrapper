@@ -96,7 +96,7 @@ opts = OptionParser.new do |o|
     options[:force] = true
   end
 
-  o.on('--phenotypes filen',String, 'Phenotypes to be shuffled in permutations') do |phenotypes|
+  o.on('--phenotypes filen',String, 'Phenotypes as .json, or as .txt to be shuffled in permutations') do |phenotypes|
     # if it is a json file we assume it is of type {"BXD1":54.099998,"BXD2":50.099998,"BXD5":53.299999 ... }
     options[:phenotypes] = phenotypes
     raise "Phenotype input file #{phenotypes} does not exist" if !File.exist?(phenotypes)
@@ -445,7 +445,7 @@ hashme =
     GEMMA_ARGS_HASH
   end
 
-HASH = compute_hash.call()
+HASH = compute_hash.call(options[:phenotypes])
 options[:compute_hash_on] = hashme
 options[:hash] = HASH
 
