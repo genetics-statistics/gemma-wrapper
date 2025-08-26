@@ -1,15 +1,20 @@
 #! /bin/env sh
 
 export TMPDIR=./tmp
-curl http://127.0.0.1:8092/dataset/bxd-publish/list > bxd-publish.json
-jq ".[] | .Id" < bxd-publish.json > ids.txt
+export GN_GUILE=http://127.0.0.1:8091
+export RDF=gemma-GWA-hk.ttl
+curl $GN_GUILE/dataset/bxd-publish/list > bxd-publish.json
+jq ".[] | .Id" < bxd-publish.json |head -10 > ids.txt
+./bin/gemma2rdf.rb --header > $RDF
 
 for id in `cat ids.txt` ; do
-  echo Precomputing $id
-  if [ ! -e tmp/trait-BXDPublish-$id-gemma-GWA-hk.tar.xz ] ; then
-      curl http://127.0.0.1:8092/dataset/bxd-publish/values/$id.json > pheno.json
-      ./bin/gn-pheno-to-gemma.rb --phenotypes pheno.json --geno-json BXD.geno.json > BXD_pheno.txt
-      # ./bin/gemma-wrapper --json --lmdb --geno-json BXD.geno.json --phenotypes pheno.json --population BXD --name BXDPublish --trait $id --loco --input K.json -- -g BXD.geno.txt -a BXD.8_snps.txt -lmm 9 -maf 0.1 -n 2 -debug > GWA.json
-      gemma -g BXD.geno.txt -p BXD_pheno.txt -a BXD.8_snps.txt -n 2 -lm 2 -o tmp/trait-BXDPublish-$id-gemma-GWA-hk
-  fi
+    echo Precomputing $0 for $id
+    traitfn=trait-BXDPublish-$id-gemma-GWA-hk.assoc.txt
+    if [ ! -e $TMPDIR/$trainfn ] ; then
+        curl $GN_GUILE/dataset/bxd-publish/values/$id.json > pheno.json
+        ./bin/gn-pheno-to-gemma.rb --phenotypes pheno.json --geno-json BXD.geno.json > BXD_pheno.txt
+        gemma -g BXD.geno.txt -p BXD_pheno.txt -a BXD.8_snps.txt -n 2 -lm 2 -outdir $TMPDIR -o $traitfn
+    fi
+    ./bin/gemma2rdf.rb $TMPDIR/$traitfn >> $RDF
+
 done
