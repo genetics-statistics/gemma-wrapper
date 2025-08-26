@@ -97,7 +97,6 @@ gn:#{id} a gnt:mappedTrait;
         gnt:belongsToGroup gn:setBxd;
         gnt:trait gn:publishXRef_#{trait};
         gnt:time \"#{TIMEX}\";
-        gnt:belongsToGroup gn:setBxd;
         gnt:name \"#{name}\";
         gnt:traitId \"#{trait}\";
         skos:altLabel \"BXD_#{trait}\".
