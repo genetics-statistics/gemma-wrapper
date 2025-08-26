@@ -38,14 +38,26 @@ if options[:show_help]
 end
 
 if options[:header]
+
+# Other prefixes used in our store:
+# @prefix pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/> .
+# @prefix qb: <http://purl.org/linked-data/cube#> .
+# @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+# @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+# @prefix sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#> .
+# @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+# @prefix xkos: <http://rdf-vocabulary.ddialliance.org/xkos#> .
+# @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
       print """
 @prefix dct: <http://purl.org/dc/terms/> .
 @prefix gn: <http://genenetwork.org/id/> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix gnc: <http://genenetwork.org/category/> .
 @prefix gnt: <http://genenetwork.org/term/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 """
 end
 
@@ -77,7 +89,7 @@ ARGV.each do |fn|
   name = "BXDPublish"
   fn =~ /(\d+)/
   trait = $1
-  id = rdf_normalize("HK_#{fn}")
+  id = rdf_normalize("HK_#{File.basename(fn)}")
   print """
 gn:#{id} a gnt:mappedTrait;
         rdfs:label \"GEMMA_BXDPublish #{fn} trait HK mapped\";

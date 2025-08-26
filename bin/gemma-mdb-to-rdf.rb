@@ -61,11 +61,12 @@ if options[:header]
       print """
 @prefix dct: <http://purl.org/dc/terms/> .
 @prefix gn: <http://genenetwork.org/id/> .
-@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix gnc: <http://genenetwork.org/category/> .
 @prefix gnt: <http://genenetwork.org/term/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 """
 end
 
