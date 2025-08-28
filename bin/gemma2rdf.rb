@@ -109,7 +109,7 @@ gn:#{id} a gnt:mappedTrait;
       # FIXME snpname.capitalize
       print """
 gn:#{snp} a gnt:mappedLocus;
-       gnt:mappedSnp gn:#{snp} ;
+       gnt:mappedSnp gn:#{id} ;
        gnt:locus gn:#{snpname.capitalize} ;
        gnt:lodScore #{lod.round(2)} .
 """
