@@ -33,19 +33,25 @@ if options[:show_help] or ARGV.size == 0
   exit 1
 end
 
+GN = RDF::Vocabulary.new("http://genenetwork.org/id/")
+GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
+
 ARGV.each do | fn |
   $stderr.print "Parsing #{fn}...\n"
   require 'rdf/ntriples'
   graph = RDF::Graph.load(fn)
 
-  GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
-  mappedTrait = GNT.mappedTrait
-  query = RDF::Query.new do
-    pattern [:dataset, RDF.type, GNT.mappedTrait]
-  end
+  datasets = graph.query(RDF::Query.new {
+                           pattern [:dataset, RDF.type, GNT.mappedTrait]
+                         })
 
-  graph.query(query) do |solution|
-    puts "dataset=#{solution.dataset}"
-  end
+  datasets.each { |trait|
+    p "-------"
+    p trait.dataset
+    snps = graph.query(RDF::Query.new {
+                         pattern [ :snp, GNT.mappedSnp, trait.dataset ]
+                       })
+    p snps
+  }
 
 end
