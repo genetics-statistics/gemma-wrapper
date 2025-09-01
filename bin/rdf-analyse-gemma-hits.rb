@@ -7,7 +7,6 @@
 require 'tmpdir'
 require 'rdf'
 require 'rdf/turtle'
-# require 'linkeddata'
 require 'optparse'
 
 options = { show_help: false }
@@ -39,9 +38,10 @@ ARGV.each do | fn |
   require 'rdf/ntriples'
   graph = RDF::Graph.load(fn)
 
-
+  GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
+  mappedTrait = GNT.mappedTrait
   query = RDF::Query.new do
-    pattern [:dataset, RDF.type, RDF::URI("http://genenetwork.org/term/mappedTrait")]
+    pattern [:dataset, RDF.type, GNT.mappedTrait]
   end
 
   graph.query(query) do |solution|
