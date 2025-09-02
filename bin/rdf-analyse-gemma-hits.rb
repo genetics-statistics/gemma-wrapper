@@ -7,6 +7,8 @@
 require 'tmpdir'
 require 'rdf'
 require 'rdf/turtle'
+require 'rdf/raptor'
+
 require 'optparse'
 
 options = { show_help: false }
@@ -36,22 +38,28 @@ end
 GN = RDF::Vocabulary.new("http://genenetwork.org/id/")
 GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
 
+# graph = RDF::Graph.new
+traits = {}
+snps = {}
 ARGV.each do | fn |
   $stderr.print "Parsing #{fn}...\n"
-  require 'rdf/ntriples'
-  graph = RDF::Graph.load(fn)
-
-  datasets = graph.query(RDF::Query.new {
-                           pattern [:dataset, RDF.type, GNT.mappedTrait]
-                         })
-
-  datasets.each { |trait|
-    p "-------"
-    p trait.dataset
-    snps = graph.query(RDF::Query.new {
-                         pattern [ :snp, GNT.mappedSnp, trait.dataset ]
-                       })
-    p snps
-  }
-
+  reader = RDF::Reader.open(fn)
+  reader.each_statement do |statement|
+    # p statement.inspect
+    subject = statement.subject
+    traits[subject] = {} if statement.object == GNT.mappedTrait
+    traits[subject][:traitId] = statement.object.to_s if statement.predicate == GNT.traitId
+    traits[subject][:loco] = statement.object.to_s if statement.predicate == GNT.loco
+    # note we assume SNPs come after!
+    if statement.predicate == GNT.mappedSnp
+      traitid = statement.object
+      traits[traitid][:snps] ||= []
+      traits[traitid][:snps].push statement.subject
+    end
+    snps[statement.subject] = statement.object if statement.predicate == GNT.locus
+  end
 end
+
+# p traits
+# p traits.size
+# p snps
