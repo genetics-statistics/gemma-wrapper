@@ -4,6 +4,7 @@
 #
 # Pjotr Prins (c) 2025
 
+require 'csv'
 require 'tmpdir'
 require 'rdf'
 require 'rdf/turtle'
@@ -35,12 +36,18 @@ if options[:show_help] or ARGV.size == 0
   exit 1
 end
 
+snps = {}
+CSV.foreach("snps.txt",headers: true, col_sep: "\t") do |row|
+  snps[row["snp"]] = row
+end
+
 GN = RDF::Vocabulary.new("http://genenetwork.org/id/")
 GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
 
 # graph = RDF::Graph.new
 traits = {}
-snps = {}
+locus = {}
+lod = {}
 ARGV.each do | fn |
   $stderr.print "Parsing #{fn}...\n"
   reader = RDF::Reader.open(fn)
@@ -49,17 +56,71 @@ ARGV.each do | fn |
     subject = statement.subject
     traits[subject] = {} if statement.object == GNT.mappedTrait
     traits[subject][:traitId] = statement.object.to_s if statement.predicate == GNT.traitId
-    traits[subject][:loco] = statement.object.to_s if statement.predicate == GNT.loco
+    traits[subject][:loco] = true if statement.predicate == GNT.loco
+    traits[subject][:hk] = true if statement.predicate == GNT.gemmaHk
     # note we assume SNPs come after!
     if statement.predicate == GNT.mappedSnp
       traitid = statement.object
       traits[traitid][:snps] ||= []
       traits[traitid][:snps].push statement.subject
     end
-    snps[statement.subject] = statement.object if statement.predicate == GNT.locus
+    locus[statement.subject] = statement.object if statement.predicate == GNT.locus
+    lod[statement.subject] = statement.object if statement.predicate == GNT.lodScore
   end
 end
 
-# p traits
-# p traits.size
-# p snps
+$stderr.print "# traits is #{traits.size}\n"
+
+loco = {}
+hk = {}
+traits.each do |k,v|
+  traitid = v[:traitId]
+  v[:id] = k
+  loco[traitid] = v if v[:loco]
+  hk[traitid] = v if v[:hk]
+end
+
+$stderr.print "# loco LMM is #{loco.size}\n"
+$stderr.print "# HK is #{hk.size}\n"
+
+# Now we have two sets of traits and we will walk every GEMMA set, and see if it matches HK
+
+loco.each do | traitid, rec |
+  # Walk all traidid and see if we have an HK counterpart
+  if hk[traitid]
+    # We create two sets out of the SNPs, make sure to transform to locus names for comparison
+    gemma_snps = loco[traitid][:snps].map { |snp| locus[snp] }
+    hk_snps = hk[traitid][:snps].map { |snp| locus[snp] }
+    gemma_set = Set.new(gemma_snps)
+    hk_set = Set.new(hk_snps)
+    combined = gemma_set + hk_set
+    difference = gemma_set - hk_set
+    p [traitid,combined.size,difference.size]
+    # let's try to define ranges
+    ranges = {}
+    if difference.size > 0
+      combined.each do | snp |
+        snp_info = snps[snp.to_s]
+        p snp_info
+        chr = snp_info["chr"]
+        pos = snp_info["mb"].to_f
+        p [chr,pos]
+        # see if one is in an existing range
+        if not ranges.has_key?(chr)
+          ranges[chr] = [ Range.new(pos,pos) ]
+        else
+          covered = false
+          ranges.values.each do | range |
+            p range
+            covered = true  if range.include?(pos)
+          end
+          ranges[chr].append Range.new(pos,pos) if not covered
+        end
+      end
+      p ranges
+      exit 1
+    end
+  else
+    $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
+  end
+end
