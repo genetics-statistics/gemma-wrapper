@@ -9,8 +9,13 @@ require 'tmpdir'
 require 'rdf'
 require 'rdf/turtle'
 require 'rdf/raptor'
-
 require 'optparse'
+require 'pp'
+
+basepath = File.dirname(File.dirname(__FILE__))
+$: << File.join(basepath,'lib')
+
+require 'qtlrange'
 
 options = { show_help: false }
 
@@ -97,27 +102,19 @@ loco.each do | traitid, rec |
     difference = gemma_set - hk_set
     p [traitid,combined.size,difference.size]
     # let's try to define ranges
-    ranges = {}
+    qtls = QTL::QRanges.new
     if difference.size > 0
       combined.each do | snp |
         snp_info = snps[snp.to_s]
         p snp_info
+        id = snp_info["snp"]
         chr = snp_info["chr"]
         pos = snp_info["mb"].to_f
         p [chr,pos]
         # see if one is in an existing range
-        if not ranges.has_key?(chr)
-          ranges[chr] = [ Range.new(pos,pos) ]
-        else
-          covered = false
-          ranges.values.each do | range |
-            p range
-            covered = true  if range.include?(pos)
-          end
-          ranges[chr].append Range.new(pos,pos) if not covered
-        end
+        qtls.add_snp(id, chr, pos)
       end
-      p ranges
+      p qtls
       exit 1
     end
   else
