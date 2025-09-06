@@ -17,12 +17,13 @@ module QTL
 
   # Track one QTL using a range
   class QRange
-    attr_reader :chr,:min,:max,:snps
+    attr_reader :chr,:min,:max,:snps,:lod
     def initialize locus
       @snps = [locus.id]
       @chr = locus.chr
       @min = locus.pos
       @max = locus.pos
+      @lod = Range.new(locus.lod,locus.lod)
       # super(locus.pos,locus.pos)
     end
 
@@ -32,6 +33,13 @@ module QTL
       @snps.append(locus.id)
       @min = [locus.pos,@min].min
       @max = [locus.pos,@max].max
+      test_lod = locus.lod
+      return if test_lod == nil
+      if @lod.min == nil or @lod.max == nil
+        @lod = Range.new(test_lod,test_lod)
+      else
+        @lod = Range.new([test_lod,@lod.min].min,[test_lod,@lod.max].max)
+      end
     end
 
     def in_range? locus
@@ -40,7 +48,7 @@ module QTL
     end
 
     def inspect
-      "#<QRange 𝚺#{snps.size} #{self.min}..#{self.max}>"
+      "#<QRange 𝚺#{snps.size} #{self.min}..#{self.max} LOD=#{@lod}>"
     end
   end
 

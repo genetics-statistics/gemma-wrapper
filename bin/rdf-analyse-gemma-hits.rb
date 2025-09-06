@@ -77,6 +77,18 @@ end
 
 $stderr.print "# traits is #{traits.size}\n"
 
+=begin
+Store trait info + snps, e.g 'p loco':
+ "10008"=>
+  {:loco=>true,
+   :traitId=>"10008",
+   :snps=>
+    [#<RDF::URI:0xd73c URI:http://genenetwork.org/id/Rsm10000011798_BXDPublish_10008_gemma_GWA_7c00f36d>,
+     #<RDF::URI:0xd7a0 URI:http://genenetwork.org/id/Rs48427909_BXDPublish_10008_gemma_GWA_7c00f36d>,
+     #<RDF::URI:0xd804 URI:http://genenetwork.org/id/Rs31915734_BXDPublish_10008_gemma_GWA_7c00f36d>],
+   :id=>#<RDF::URI:0xd6b0 URI:http://genenetwork.org/id/GEMMAMapped_LOCO_BXDPublish_10008_gemma_GWA_7c00f36d>}}
+=end
+
 loco = {}
 hk = {}
 traits.each do |k,v|
@@ -103,21 +115,29 @@ loco.each do | traitid, rec |
     difference = gemma_set - hk_set
     p [traitid,combined.size,difference.size]
     # let's try to define ranges
-    # we need lod scores
+    # we need to revert to using SNP unique IDs now
 
-    #gemma_snps_lod = loco[traitid][:snps].map { |snp| lod[snp].to_f }
-    #hk_snps_lod = loco[traitid][:snps].map { |snp| lod[snp].to_f }
+    gemma_snps = loco[traitid][:snps]
+    hk_snps = hk[traitid][:snps]
 
     if difference.size > 0
-      [[combined,"combined"],[hk_set,"HK"],[gemma_set,"LOCO"]].each do |cmd|
+      [[combined,"combined"],[hk_snps,"HK"],[gemma_snps,"LOCO"]].each do |cmd|
         set,setname = cmd
         qtls = QTL::QRanges.new(traitid,setname)
         set.each do | snp |
-          snp_info = snps[snp.to_s]
+          base_snp_id = snp
+          snp_info = snps[base_snp_id.to_s]
+          if snp_info == nil
+            # redirect to the actual snp id
+            base_snp_id = locus[snp].to_s
+            snp_info = snps[base_snp_id.to_s]
+          end
           snp_uri = snp_info["snp"]
           chr = snp_info["chr"]
           pos = snp_info["mb"].to_f
-          qlocus = QTL::QLocus.new(snp_uri,chr,pos)
+          snp_lod = lod[snp]
+          snp_lod = snp_lod.to_f if snp_lod != nil
+          qlocus = QTL::QLocus.new(snp_uri,chr,pos,snp_lod)
           qtls.add_locus(qlocus)
         end
         p qtls
