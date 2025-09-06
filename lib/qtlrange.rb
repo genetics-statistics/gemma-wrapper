@@ -1,26 +1,42 @@
 # This module handles a list of chromosomes and QTL ranges, tracking SNPs
 
-=begin
-
-          r = Range.new(1.1,2.0)
-          irb(main):013:0> [4.0,r.max].max
-          => 4.0
-          irb(main):014:0> [1.0,r.max].max
-          => 2.0
-
-=end
-
+MAX_SNP_DISTANCE_BPS = 50_000_000.0
+MAX_SNP_DISTANCE = MAX_SNP_DISTANCE_BPS/10**6
 
 module QTL
 
+  class QLocus
+    attr :id,:chr,:pos,:lod
+    def initialize id,chr,pos,lod=nil
+      @id = id
+      @chr = chr
+      @pos = pos
+      @lod = lod
+    end
+  end
 
   # Track one QTL using a range
-  class QRange < Range
-    attr_reader :chr,:snps
-    def initialize id, chr, pos
-      @snps = [id]
-      @chr = chr
-      super(pos,pos)
+  class QRange
+    attr_reader :chr,:min,:max,:snps
+    def initialize locus
+      @snps = [locus.id]
+      @chr = locus.chr
+      @min = locus.pos
+      @max = locus.pos
+      # super(locus.pos,locus.pos)
+    end
+
+    def add locus
+      chr = locus.chr
+      raise "Chr #{chr} mismatched for range #{self}" if chr != @chr
+      @snps.append(locus.id)
+      @min = [locus.pos,@min].min
+      @max = [locus.pos,@max].max
+    end
+
+    def in_range? locus
+      pos = locus.pos
+      pos > @min - MAX_SNP_DISTANCE and pos < @max + MAX_SNP_DISTANCE
     end
 
     def inspect
@@ -31,35 +47,31 @@ module QTL
   # Track all ranges
   class QRanges
     attr_reader :chromosome
-    def initialize
+    def initialize name, method=""
       @chromosome = {}
-      @snps = {}
+      @name = name
+      @method = method
     end
 
-    def add_snp snp_id, chr, pos
+    def add_locus locus
+      chr = locus.chr
       @chromosome[chr] = [] if not @chromosome.has_key? chr
-      # qtl = QRange(snp_id,snp)
       ranges = @chromosome[chr]
-      hit = QRange.new(snp_id,chr,pos)
       covered = false
+      nrange = QRange.new(locus)
       ranges.each do |range|
-        if range.include?(pos)
+        if range.in_range?(locus)
+          range.add(locus)
           covered = true
         end
       end
-      ranges.append(hit) if not covered
+      ranges.append(nrange) if not covered
+      # make sure they are ordered
+      @chromosome[chr] = ranges.sort_by { |r| r.min }
+    end
 
-        # if not ranges.has_key?(chr)
-        #   ranges[chr] = [ Range.new(pos,pos) ]
-        # else
-        #   covered = false
-        #   ranges.values.each do | range |
-        #     p range
-        #     covered = true  if range.include?(pos)
-        #   end
-        #   ranges[chr].append Range.new(pos,pos) if not covered
-        # end
+    def inspect
+      "[#{@name},#{@method}] =>{" + chromosome.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
   end
-
 end

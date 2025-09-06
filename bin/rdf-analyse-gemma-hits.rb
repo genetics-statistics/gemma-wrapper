@@ -58,19 +58,20 @@ ARGV.each do | fn |
   reader = RDF::Reader.open(fn)
   reader.each_statement do |statement|
     # p statement.inspect
+    # these are stored by run-trait:
     subject = statement.subject
     traits[subject] = {} if statement.object == GNT.mappedTrait
     traits[subject][:traitId] = statement.object.to_s if statement.predicate == GNT.traitId
     traits[subject][:loco] = true if statement.predicate == GNT.loco
     traits[subject][:hk] = true if statement.predicate == GNT.gemmaHk
-    # note we assume SNPs come after!
+    # note we assume SNPs come after! Store by run-trait-SNP id:
     if statement.predicate == GNT.mappedSnp
       traitid = statement.object
       traits[traitid][:snps] ||= []
       traits[traitid][:snps].push statement.subject
     end
     locus[statement.subject] = statement.object if statement.predicate == GNT.locus
-    lod[statement.subject] = statement.object if statement.predicate == GNT.lodScore
+    lod[statement.subject] = statement.object if statement.predicate == GNT.lodScore # locus and lod share identifier
   end
 end
 
@@ -102,20 +103,25 @@ loco.each do | traitid, rec |
     difference = gemma_set - hk_set
     p [traitid,combined.size,difference.size]
     # let's try to define ranges
-    qtls = QTL::QRanges.new
+    # we need lod scores
+
+    #gemma_snps_lod = loco[traitid][:snps].map { |snp| lod[snp].to_f }
+    #hk_snps_lod = loco[traitid][:snps].map { |snp| lod[snp].to_f }
+
     if difference.size > 0
-      combined.each do | snp |
-        snp_info = snps[snp.to_s]
-        p snp_info
-        id = snp_info["snp"]
-        chr = snp_info["chr"]
-        pos = snp_info["mb"].to_f
-        p [chr,pos]
-        # see if one is in an existing range
-        qtls.add_snp(id, chr, pos)
+      [[combined,"combined"],[hk_set,"HK"],[gemma_set,"LOCO"]].each do |cmd|
+        set,setname = cmd
+        qtls = QTL::QRanges.new(traitid,setname)
+        set.each do | snp |
+          snp_info = snps[snp.to_s]
+          snp_uri = snp_info["snp"]
+          chr = snp_info["chr"]
+          pos = snp_info["mb"].to_f
+          qlocus = QTL::QLocus.new(snp_uri,chr,pos)
+          qtls.add_locus(qlocus)
+        end
+        p qtls
       end
-      p qtls
-      exit 1
     end
   else
     $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
