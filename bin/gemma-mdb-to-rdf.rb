@@ -11,6 +11,7 @@ require 'tmpdir'
 require 'json'
 require 'lmdb'
 require 'optparse'
+require 'socket'
 
 options = { show_help: false }
 
@@ -82,6 +83,9 @@ end
 def rdf_normalize(uri)
   uri.gsub(/-/,"_")
 end
+
+USER=ENV['USER']
+HOSTNAME=Socket.gethostname
 
 ARGV.each do |fn|
   Dir.mktmpdir do |tmpdir|
@@ -156,7 +160,10 @@ ARGV.each do |fn|
       gnt:std #{std};
       gnt:skew #{skew};
       gnt:kurtosis #{kurtosis};
-      skos:altLabel \"BXD_#{trait}\".
+      skos:altLabel \"BXD_#{trait}\";
+      gnt:filename \"#{File.basename(fn)}\";
+      gnt:hostname \"#{HOSTNAME}\";
+      gnt:user \"#{USER}\".
 """
 
       first = true

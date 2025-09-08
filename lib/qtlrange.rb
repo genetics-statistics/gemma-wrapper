@@ -24,7 +24,6 @@ module QTL
       @min = locus.pos
       @max = locus.pos
       @lod = Range.new(locus.lod,locus.lod)
-      # super(locus.pos,locus.pos)
     end
 
     def add locus
