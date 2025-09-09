@@ -117,7 +117,7 @@ loco.each do | traitid, rec |
     hk_set = Set.new(hk_snps)
     combined = gemma_set + hk_set
     difference = gemma_set - hk_set
-    $stderr.print [traitid,combined.size,difference.size]
+    $stderr.print [traitid,combined.size,difference.size],"\n"
     # let's try to define ranges
     # we need to revert to using SNP unique IDs now
 
@@ -147,6 +147,8 @@ loco.each do | traitid, rec |
         end
         results[setname] = qtls
       end
+      # p results
+      print qtl_diff(results["HK"],results["LOCO"])
 
     end
   else

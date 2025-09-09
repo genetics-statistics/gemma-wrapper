@@ -46,14 +46,22 @@ module QTL
       pos > @min - MAX_SNP_DISTANCE and pos < @max + MAX_SNP_DISTANCE
     end
 
+    # See if a QRange overlaps with one of ours
+    def overlaps? qtl
+      return true if qtl.min > @min and qtl.max < @max
+      return true if qtl.min < @min and qtl.max > @min
+      return true if qtl.min < @max and qtl.max > @max
+      false
+    end
+
     def inspect
-      "#<QRange 𝚺#{snps.size} #{self.min}..#{self.max} LOD=#{@lod}>"
+      "#<QRange Chr#{@chr} 𝚺#{snps.size} #{self.min}..#{self.max} LOD=#{@lod}>"
     end
   end
 
   # Track all ranges
   class QRanges
-    attr_reader :chromosome
+    attr_reader :chromosome,:name,:method
     def initialize name, method=""
       @chromosome = {}
       @name = name
@@ -77,9 +85,33 @@ module QTL
       @chromosome[chr] = ranges.sort_by { |r| r.min }
     end
 
-    def inspect
+    def to_s
       "[#{@name},#{@method}] =>{" + chromosome.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
 
+  end
+end
+
+# Take two QRanges and say what is happening
+def qtl_diff(set1, set2)
+  $stderr.print set1,"\n"
+  $stderr.print set2,"\n"
+  name = set1.name
+  # we check by chromosome
+  set2.chromosome.each do | chr,qtls2 |
+    qtls1 = set1.chromosome[chr]
+    # print " #{set1.method} Chr #{chr} has #{qtls1.size} QTLs\n"
+    # print " #{set2.method} Chr #{chr} has #{qtls2.size} QTLs\n"
+    # p qtls2
+    qtls2.each do | qtl2 |
+      match = false
+      qtls1.each do | qtl1 |
+        match = true if qtl2.overlaps?(qtl1)
+        break
+      end
+      if not match
+        p ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2]
+      end
+    end
   end
 end
