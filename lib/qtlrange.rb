@@ -80,5 +80,6 @@ module QTL
     def inspect
       "[#{@name},#{@method}] =>{" + chromosome.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
+
   end
 end

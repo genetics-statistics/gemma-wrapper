@@ -26,6 +26,10 @@ opts = OptionParser.new do |o|
     options[:header] = true
   end
 
+  o.on('-o','--output TYPE', 'Output TEXT (default) or RDF') do |type|
+    options[:output] = type
+  end
+
   o.separator ""
 
   o.on_tail('-h', '--help', 'display this help and exit') do
@@ -113,7 +117,7 @@ loco.each do | traitid, rec |
     hk_set = Set.new(hk_snps)
     combined = gemma_set + hk_set
     difference = gemma_set - hk_set
-    p [traitid,combined.size,difference.size]
+    $stderr.print [traitid,combined.size,difference.size]
     # let's try to define ranges
     # we need to revert to using SNP unique IDs now
 
@@ -121,6 +125,7 @@ loco.each do | traitid, rec |
     hk_snps = hk[traitid][:snps]
 
     if difference.size > 0
+      results = {}
       [[combined,"combined"],[hk_snps,"HK"],[gemma_snps,"LOCO"]].each do |cmd|
         set,setname = cmd
         qtls = QTL::QRanges.new(traitid,setname)
@@ -140,8 +145,9 @@ loco.each do | traitid, rec |
           qlocus = QTL::QLocus.new(snp_uri,chr,pos,snp_lod)
           qtls.add_locus(qlocus)
         end
-        p qtls
+        results[setname] = qtls
       end
+
     end
   else
     $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
