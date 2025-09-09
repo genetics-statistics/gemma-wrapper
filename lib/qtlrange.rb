@@ -88,7 +88,7 @@ module QTL
     def print_rdf(id)
       chromosome.sort.each do |chr,r|
         r.each do | qtl |
-          qtlid = "#{id}_#{chr}_#{qtl.min.round}"
+          qtlid = gnqtlid(id,qtl)
           print """
 #{qtlid}
     gnt:mappedQTL   #{id};
@@ -114,7 +114,7 @@ module QTL
 end
 
 # Take two QRanges and say what is happening
-def qtl_diff(set1, set2)
+def qtl_diff(id, set1, set2, print_rdf)
   $stderr.print set1,"\n"
   $stderr.print set2,"\n"
   name = set1.name
@@ -128,7 +128,11 @@ def qtl_diff(set1, set2)
         break
       end
       if not match
-        p ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2]
+        if print_rdf
+          qtlid = gnqtlid(id,qtl2)
+          print "#{qtlid} a gnt:newlyDiscoveredQTL .\n"
+        end
+        $stderr.print ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2],"\n"
       end
     end
   end

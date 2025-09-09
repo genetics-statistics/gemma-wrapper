@@ -149,14 +149,11 @@ loco.each do | traitid, rec |
         end
         results[setname] = qtls
       end
-      # p results
-      qtl_diff(results["HK"],results["LOCO"])
-      # p loco[traitid]
       id = gnid(loco[traitid][:id])
       results["LOCO"].print_rdf(id) if options[:rdf]
+      qtl_diff(id,results["HK"],results["LOCO"],options[:rdf])
     end
   else
     $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
   end
-  p options
 end
