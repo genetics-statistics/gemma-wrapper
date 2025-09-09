@@ -15,6 +15,7 @@ require 'pp'
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
 
+require 'gnrdf'
 require 'qtlrange'
 
 options = { show_help: false }
@@ -27,7 +28,8 @@ opts = OptionParser.new do |o|
   end
 
   o.on('-o','--output TYPE', 'Output TEXT (default) or RDF') do |type|
-    options[:output] = type
+    options[:output] = type.to_sym
+    options[:rdf] = true if type == "RDF"
   end
 
   o.separator ""
@@ -142,16 +144,19 @@ loco.each do | traitid, rec |
           pos = snp_info["mb"].to_f
           snp_lod = lod[snp]
           snp_lod = snp_lod.to_f if snp_lod != nil
-          qlocus = QTL::QLocus.new(snp_uri,chr,pos,snp_lod)
+          qlocus = QTL::QLocus.new(snp.to_s,chr,pos,snp_lod)
           qtls.add_locus(qlocus)
         end
         results[setname] = qtls
       end
       # p results
-      print qtl_diff(results["HK"],results["LOCO"])
-
+      qtl_diff(results["HK"],results["LOCO"])
+      # p loco[traitid]
+      id = gnid(loco[traitid][:id])
+      results["LOCO"].print_rdf(id) if options[:rdf]
     end
   else
     $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
   end
+  p options
 end

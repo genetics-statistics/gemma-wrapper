@@ -85,6 +85,27 @@ module QTL
       @chromosome[chr] = ranges.sort_by { |r| r.min }
     end
 
+    def print_rdf(id)
+      chromosome.sort.each do |chr,r|
+        r.each do | qtl |
+          qtlid = "#{id}_#{chr}_#{qtl.min.round}"
+          print """
+#{qtlid}
+    gnt:mappedQTL   #{id};
+    rdfs:label      \"GEMMA BXDPublish QTL\";
+    gnt:qtlChr      \"#{chr}\";
+    gnt:qtlStart    #{qtl.min} ;
+    gnt:qtlStop     #{qtl.max} ;
+    gnt:qtlLOD      #{qtl.lod.max} .
+"""
+          qtl.snps.each do |snp|
+            print """#{qtlid} gnt:mappedSnp #{gnid(snp)} .
+"""
+          end
+        end
+      end
+    end
+
     def to_s
       "[#{@name},#{@method}] =>{" + chromosome.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
@@ -100,9 +121,6 @@ def qtl_diff(set1, set2)
   # we check by chromosome
   set2.chromosome.each do | chr,qtls2 |
     qtls1 = set1.chromosome[chr]
-    # print " #{set1.method} Chr #{chr} has #{qtls1.size} QTLs\n"
-    # print " #{set2.method} Chr #{chr} has #{qtls2.size} QTLs\n"
-    # p qtls2
     qtls2.each do | qtl2 |
       match = false
       qtls1.each do | qtl1 |
