@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 #
-# Parse SNP RDF and compare between two datasets
+# Parse SNP RDF and compare between two datasets. At this stage requires snp.txt file - WIP.
 #
 # Pjotr Prins (c) 2025
 
@@ -114,7 +114,12 @@ loco.each do | traitid, rec |
   if hk[traitid]
     # We create two sets out of the SNPs, make sure to transform to locus names for comparison
     gemma_snps = loco[traitid][:snps].map { |snp| locus[snp] }
-    hk_snps = hk[traitid][:snps].map { |snp| locus[snp] }
+    next if gemma_snps == nil
+    hk_snps = if hk[traitid][:snps]
+                hk[traitid][:snps].map { |snp| locus[snp] }
+              else
+                []
+              end
     gemma_set = Set.new(gemma_snps)
     hk_set = Set.new(hk_snps)
     combined = gemma_set + hk_set
@@ -125,6 +130,7 @@ loco.each do | traitid, rec |
 
     gemma_snps = loco[traitid][:snps]
     hk_snps = hk[traitid][:snps]
+    hk_snps = [] if hk_snps == nil
 
     if difference.size > 0
       results = {}
@@ -139,13 +145,15 @@ loco.each do | traitid, rec |
             base_snp_id = locus[snp].to_s
             snp_info = snps[base_snp_id.to_s]
           end
-          snp_uri = snp_info["snp"]
-          chr = snp_info["chr"]
-          pos = snp_info["mb"].to_f
-          snp_lod = lod[snp]
-          snp_lod = snp_lod.to_f if snp_lod != nil
-          qlocus = QTL::QLocus.new(snp.to_s,chr,pos,snp_lod)
-          qtls.add_locus(qlocus)
+          if snp_info # skip unknown SNPs
+            snp_uri = snp_info["snp"]
+            chr = snp_info["chr"]
+            pos = snp_info["mb"].to_f
+            snp_lod = lod[snp]
+            snp_lod = snp_lod.to_f if snp_lod != nil
+            qlocus = QTL::QLocus.new(snp.to_s,chr,pos,snp_lod)
+            qtls.add_locus(qlocus)
+          end
         end
         results[setname] = qtls
       end

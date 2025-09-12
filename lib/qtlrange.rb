@@ -121,18 +121,28 @@ def qtl_diff(id, set1, set2, print_rdf)
   # we check by chromosome
   set2.chromosome.each do | chr,qtls2 |
     qtls1 = set1.chromosome[chr]
-    qtls2.each do | qtl2 |
-      match = false
-      qtls1.each do | qtl1 |
-        match = true if qtl2.overlaps?(qtl1)
-        break
-      end
-      if not match
+    if qtls1 == nil
+      qtls2.each do | qtl2 |
         if print_rdf
           qtlid = gnqtlid(id,qtl2)
           print "#{qtlid} a gnt:newlyDiscoveredQTL .\n"
         end
-        $stderr.print ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2],"\n"
+      end
+      $stderr.print ["#{name}: NO HK #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtls2],"\n"
+    else
+      qtls2.each do | qtl2 |
+        match = false
+        qtls1.each do | qtl1 |
+          match = true if qtl2.overlaps?(qtl1)
+          break
+        end
+        if not match
+          if print_rdf
+            qtlid = gnqtlid(id,qtl2)
+            print "#{qtlid} a gnt:newlyDiscoveredQTL .\n"
+          end
+          $stderr.print ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2],"\n"
+        end
       end
     end
   end
