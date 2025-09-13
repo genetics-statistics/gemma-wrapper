@@ -12,6 +12,8 @@ require 'rdf/raptor'
 require 'optparse'
 require 'pp'
 
+PROGRESS=1000
+
 basepath = File.dirname(File.dirname(__FILE__))
 $: << File.join(basepath,'lib')
 
@@ -60,13 +62,18 @@ traits = {}
 locus = {}
 lod = {}
 ARGV.each do | fn |
-  $stderr.print "Parsing #{fn}...\n"
+  num = 0
+  $stderr.print "Parsing #{fn}."
   reader = RDF::Reader.open(fn)
   reader.each_statement do |statement|
-    # p statement.inspect
+    #  p statement.inspect
     # these are stored by run-trait:
     subject = statement.subject
-    traits[subject] = {} if statement.object == GNT.mappedTrait
+    if statement.object == GNT.mappedTrait
+      traits[subject] = {}
+      $stderr.print(".") if num % PROGRESS == 0
+      num += 1
+    end
     traits[subject][:traitId] = statement.object.to_s if statement.predicate == GNT.traitId
     traits[subject][:loco] = true if statement.predicate == GNT.loco
     traits[subject][:hk] = true if statement.predicate == GNT.gemmaHk
@@ -162,6 +169,6 @@ loco.each do | traitid, rec |
       qtl_diff(id,results["HK"],results["LOCO"],options[:rdf])
     end
   else
-    $stderr.print "WARNING: no HK counterpart for #{traitid}\n"
+    $stderr.print "WARNING: no HK counterpart for #{traitid} -- #{hk[traitid]}\n"
   end
 end

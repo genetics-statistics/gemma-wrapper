@@ -78,6 +78,7 @@ ARGV.each do |fn|
       header = rec
     else
       minusLogP = -Math.log10(rec[-1].to_f)
+      minusLogP = 99.0 if minusLogP.infinite?
       rec.push minusLogP
       recs.push rec
     end
@@ -93,7 +94,7 @@ ARGV.each do |fn|
   print """
 gn:#{id} a gnt:mappedTrait;
         rdfs:label \"GEMMA_BXDPublish #{fn} trait HK mapped\";
-        gnt:GEMMA_HK true;
+        gnt:GemmaHK true;
         gnt:belongsToGroup gn:setBxd;
         gnt:trait gn:publishXRef_#{trait};
         gnt:time \"#{TIMEX}\";

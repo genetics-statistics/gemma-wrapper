@@ -125,10 +125,10 @@ def qtl_diff(id, set1, set2, print_rdf)
       qtls2.each do | qtl2 |
         if print_rdf
           qtlid = gnqtlid(id,qtl2)
-          print "#{qtlid} a gnt:newlyDiscoveredQTL .\n"
+          print "#{qtlid} a gnt:newQTL .\n"
         end
       end
-      $stderr.print ["#{name}: NO HK #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtls2],"\n"
+      $stderr.print ["#{name}: NO #{set1.method} results, new QTL(s) #{set2.method} Chr #{chr}!",qtls2],"\n"
     else
       qtls2.each do | qtl2 |
         match = false
@@ -139,9 +139,9 @@ def qtl_diff(id, set1, set2, print_rdf)
         if not match
           if print_rdf
             qtlid = gnqtlid(id,qtl2)
-            print "#{qtlid} a gnt:newlyDiscoveredQTL .\n"
+            print "#{qtlid} a gnt:newQTL .\n"
           end
-          $stderr.print ["#{name}: NO #{set1.method} match for #{set2.method} Chr #{chr} QTL!",qtl2],"\n"
+          $stderr.print ["#{name}: NO #{set1.method} match, QTL #{set2.method} Chr #{chr}!",qtl2],"\n"
         end
       end
     end
