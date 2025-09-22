@@ -78,7 +78,7 @@ ARGV.each do |fn|
       header = rec
     else
       minusLogP = -Math.log10(rec[-1].to_f)
-      minusLogP = 99.0 if minusLogP.infinite?
+      next if minusLogP.infinite? # we skip these as they are NaN in GEMMA
       rec.push minusLogP
       recs.push rec
     end
