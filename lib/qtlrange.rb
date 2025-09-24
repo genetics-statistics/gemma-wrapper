@@ -2,27 +2,30 @@
 
 MAX_SNP_DISTANCE_BPS = 50_000_000.0
 MAX_SNP_DISTANCE = MAX_SNP_DISTANCE_BPS/10**6
+LOD_MIN = 4.0
 
 module QTL
 
   class QLocus
-    attr :id,:chr,:pos,:lod
-    def initialize id,chr,pos,lod=nil
+    attr :id,:chr,:pos,:af,:lod
+    def initialize id,chr,pos,af,lod
       @id = id
       @chr = chr
       @pos = pos
+      @af = af
       @lod = lod
     end
   end
 
   # Track one QTL using a range
   class QRange
-    attr_reader :chr,:min,:max,:snps,:lod
+    attr_reader :chr,:min,:max,:snps,:max_af,:lod
     def initialize locus
       @snps = [locus.id]
       @chr = locus.chr
       @min = locus.pos
       @max = locus.pos
+      @max_af = locus.af
       @lod = Range.new(locus.lod,locus.lod)
     end
 
@@ -34,6 +37,7 @@ module QTL
       @max = [locus.pos,@max].max
       test_lod = locus.lod
       return if test_lod == nil
+      @max_af=locus.af if @max_af==nil or locus.af > @max_af
       if @lod.min == nil or @lod.max == nil
         @lod = Range.new(test_lod,test_lod)
       else
@@ -48,14 +52,18 @@ module QTL
 
     # See if a QRange overlaps with one of ours
     def overlaps? qtl
-      return true if qtl.min > @min and qtl.max < @max
-      return true if qtl.min < @min and qtl.max > @min
-      return true if qtl.min < @max and qtl.max > @max
+      return true if qtl.min >= @min and qtl.max <= @max # qtl falls with bounds
+      return true if qtl.min <= @min and qtl.max >= @min # qtl over left boundary
+      return true if qtl.min <= @max and qtl.max >= @max # qtl over right boundary
       false
     end
 
     def inspect
-      "#<QRange Chr#{@chr} 𝚺#{snps.size} #{self.min}..#{self.max} LOD=#{@lod}>"
+      if @max_af != nil
+        "#<QRange Chr#{@chr} 𝚺#{snps.size} #{self.min}..#{self.max} AF=#{@max_af} LOD=#{@lod}>"
+      else
+        "#<QRange Chr#{@chr} 𝚺#{snps.size} #{self.min}..#{self.max} LOD=#{@lod}>"
+      end
     end
   end
 
@@ -96,8 +104,9 @@ module QTL
     gnt:qtlChr      \"#{chr}\";
     gnt:qtlStart    #{qtl.min} ;
     gnt:qtlStop     #{qtl.max} ;
-    gnt:qtlLOD      #{qtl.lod.max} .
 """
+          print "    gnt:qtlAF       #{qtl.max_af} ;\n" if qtl.max_af
+          print "    gnt:qtlLOD      #{qtl.lod.max} .\n"
           qtl.snps.each do |snp|
             print """#{qtlid} gnt:mappedSnp #{gnid(snp)} .
 """
@@ -123,9 +132,11 @@ def qtl_diff(id, set1, set2, print_rdf)
     qtls1 = set1.chromosome[chr]
     if qtls1 == nil
       qtls2.each do | qtl2 |
-        if print_rdf
+        if print_rdf # Output QTL to RDF
           qtlid = gnqtlid(id,qtl2)
-          print "#{qtlid} a gnt:newQTL .\n"
+          if qtl2.lod.max >= LOD_MIN
+            print "#{qtlid} a gnt:newQTL .\n"
+          end
         end
       end
       $stderr.print ["#{name}: NO #{set1.method} results, new QTL(s) #{set2.method} Chr #{chr}!",qtls2],"\n"
@@ -139,7 +150,9 @@ def qtl_diff(id, set1, set2, print_rdf)
         if not match
           if print_rdf
             qtlid = gnqtlid(id,qtl2)
-            print "#{qtlid} a gnt:newQTL .\n"
+            if qtl2.lod.max >= LOD_MIN
+              print "#{qtlid} a gnt:newQTL .\n"
+            end
           end
           $stderr.print ["#{name}: NO #{set1.method} match, QTL #{set2.method} Chr #{chr}!",qtl2],"\n"
         end

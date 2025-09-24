@@ -60,7 +60,9 @@ GNT = RDF::Vocabulary.new("http://genenetwork.org/term/")
 # graph = RDF::Graph.new
 traits = {}
 locus = {}
+# Note we track the following globally, they get quite large
 lod = {}
+af = {}
 ARGV.each do | fn |
   num = 0
   $stderr.print "Parsing #{fn}."
@@ -76,7 +78,7 @@ ARGV.each do | fn |
     end
     traits[subject][:traitId] = statement.object.to_s if statement.predicate == GNT.traitId
     traits[subject][:loco] = true if statement.predicate == GNT.loco
-    traits[subject][:hk] = true if statement.predicate == GNT.gemmaHk
+    traits[subject][:hk] = true if statement.predicate == GNT.GemmaHK
     # note we assume SNPs come after! Store by run-trait-SNP id:
     if statement.predicate == GNT.mappedSnp
       traitid = statement.object
@@ -85,6 +87,7 @@ ARGV.each do | fn |
     end
     locus[statement.subject] = statement.object if statement.predicate == GNT.locus
     lod[statement.subject] = statement.object if statement.predicate == GNT.lodScore # locus and lod share identifier
+    af[statement.subject] = statement.object if statement.predicate == GNT.af
   end
 end
 
@@ -156,9 +159,11 @@ loco.each do | traitid, rec |
             snp_uri = snp_info["snp"]
             chr = snp_info["chr"]
             pos = snp_info["mb"].to_f
+            snp_af = af[snp]
+            snp_af = snp_af.to_f if snp_af != nil
             snp_lod = lod[snp]
             snp_lod = snp_lod.to_f if snp_lod != nil
-            qlocus = QTL::QLocus.new(snp.to_s,chr,pos,snp_lod)
+            qlocus = QTL::QLocus.new(snp.to_s,chr,pos,snp_af,snp_lod)
             qtls.add_locus(qlocus)
           end
         end
