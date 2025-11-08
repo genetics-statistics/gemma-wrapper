@@ -231,6 +231,14 @@ json_out = lambda do
   record.to_json if options[:json]
 end
 
+def compute_hash(fn)
+  if File.size(fn) > 100_000
+    `pfff #{fn}`.split(/\t/)[0]
+  else
+    Digest::SHA1.hexdigest(File.read(fn))
+  end
+end
+
 # ---- Some error handlers
 error = lambda do |*msg|
   if options[:json]
@@ -423,7 +431,7 @@ compute_hash = lambda do | phenofn = nil |
   hm.each do | item |
     # if entry is a file use the hash of its content, otherwise just the entry itself
     if File.file?(item)
-      hashes << Digest::SHA1.hexdigest(File.read(item))
+      hashes << compute_hash(item)
       debug.call [item,hashes.last]
     else
       hashes << item
@@ -474,7 +482,7 @@ GEMMA_ARGS = gemma_args
 
 gemma_args.include? "-g" and "Genotype switch -g missing for GEMMA"
 geno_filename = gemma_args[gemma_args.index("-g")+1]
-geno_hash = Digest::SHA1.hexdigest(File.read(geno_filename))
+geno_hash = compute_hash(geno_filename)
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
