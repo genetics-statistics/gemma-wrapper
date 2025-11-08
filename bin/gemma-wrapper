@@ -490,6 +490,13 @@ geno_hash = compute_hash(geno_filename)
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
+JOBS =
+  if options[:jobs]
+    "-j #{options[:jobs]}"
+  else
+    ""
+  end
+
 invoke_parallel = lambda do |msg=nil|
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
   joblog = tmpdir+"/"+JOBLOG
@@ -505,8 +512,6 @@ invoke_parallel = lambda do |msg=nil|
     cmd = "cat \"#{cmdfn}\""
     debug.call("tmpdir=#{tmpdir}")
     p msg if msg
-    JOBS = ""
-    JOBS = "-j #{options[:jobs]}" if options[:jobs]
 
     if options[:debug]
       # special debug mode to show errors
