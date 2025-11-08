@@ -168,6 +168,10 @@ opts = OptionParser.new do |o|
     options[:parallel] = false
   end
 
+  o.on('--jobs n', Integer, 'Maximum jobs to run in parallel') do |j|
+    options[:jobs] = j
+  end
+
   o.on("--lmdb", "Generate lmdb output") do |b|
     options[:lmdb] = true
   end
@@ -501,11 +505,14 @@ invoke_parallel = lambda do |msg=nil|
     cmd = "cat \"#{cmdfn}\""
     debug.call("tmpdir=#{tmpdir}")
     p msg if msg
+    JOBS = ""
+    JOBS = "-j #{options[:jobs]}" if options[:jobs]
+
     if options[:debug]
       # special debug mode to show errors
-      err,stats = execute.call("parallel < #{cmdfn}") # first try optimistically to run all jobs in parallel
+      err,stats = execute.call("parallel #{JOBS} < #{cmdfn}") # first try optimistically to run all jobs in parallel
     else
-      err,stats = execute.call("parallel --results #{tmpdir} --joblog #{joblog} < #{cmdfn}") # first try optimistically to run all jobs in parallel
+      err,stats = execute.call("parallel #{JOBS} --results #{tmpdir} --joblog #{joblog} < #{cmdfn}") # first try optimistically to run all jobs in parallel
     end
     if err != 0 and not options[:debug]
       [4,1].each do |jobs|
