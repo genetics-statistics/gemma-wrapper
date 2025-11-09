@@ -18,10 +18,13 @@ from struct import *
 import numpy as np
 import scipy.stats as stat
 
+SIGNIFICANT = 4.0
+
 parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lmdb db.')
 parser.add_argument('--db',default="gemma.mdb",help="DB name")
 parser.add_argument('--meta',required=False,help="JSON meta file name")
 parser.add_argument('files',nargs='*',help="GEMMA file(s)")
+parser.add_argument('--debug',required=False,help="Debug mode")
 args = parser.parse_args()
 
 # ASCII
@@ -75,31 +78,28 @@ with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
                             chr = M
                         else:
                             chr = int(chr)
-                        # print(f"chr={chr}, type={type(chr)}")
-                        chr_c = pack('c',bytes([chr]))
-                        # print(chr,chr_c,rs)
-                        # key = (chr+'_'+pos).encode()
-                        key = pack('>cL',chr_c,int(pos))
-                        test_chr_c,test_pos = unpack('>cL',key)
-                        assert chr_c == test_chr_c
-                        assert test_pos == int(pos)
-                        test_chr = unpack('c',chr_c)
-                        # assert test_chr == int(chr), f"{test_chr} vs {int(chr)} - {chr}"
-                        val = pack('=fffff', float(af), float(beta), float(se), float(l_mle), float(p_lrt))
-                        assert len(val)==20, f"Packed size is expected to be 20, but is {len(val)}"
-                        res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
-                        if res == 0:
-                            print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
-                        else:
-                            if float(p_lrt) > 2.0:
-                                hits.append([chr,int(pos),rs,p_lrt])
+                        if float(p_lrt) > SIGNIFICANT:
+                            chr_c = pack('c',bytes([chr]))
+                            key = pack('>cL',chr_c,int(pos))
+                            val = pack('=fffff', float(af), float(beta), float(se), float(l_mle), float(p_lrt))
+                            if args.debug:
+                                test_chr_c,test_pos = unpack('>cL',key)
+                                assert chr_c == test_chr_c
+                                assert test_pos == int(pos)
+                                test_chr = unpack('c',chr_c)
+                                assert len(val)==20, f"Packed size is expected to be 20, but is {len(val)}"
+                                res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
+                                if res == 0:
+                                    print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
+                                else:
+                                    if float(p_lrt) > 4.0:
+                                        hits.append([chr,int(pos),rs,p_lrt])
 
     with env.begin() as txn:
         with txn.cursor() as curs:
             # quick check and output of keys
             for key in list(txn.cursor().iternext(values=False)):
                 chr,pos = unpack('>cL',key)
-                # print(str(chr),pos)
 
     meta["hits"] = hits
     meta["log"] = log
