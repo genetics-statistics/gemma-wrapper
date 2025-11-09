@@ -176,6 +176,10 @@ opts = OptionParser.new do |o|
     options[:lmdb] = true
   end
 
+  o.on("--reduced", "Only store hits in lmdb output") do |b|
+    options[:reduced] = true
+  end
+
   o.on("--slurm[=opts]",String,"Use slurm PBS for submitting jobs") do |slurm|
     options[:slurm_opts] = ""
     options[:slurm] = true
@@ -958,7 +962,13 @@ if create_archive
     end
     if options[:lmdb]
       File.unlink(LMDB) if File.exist?(LMDB) # removed any cached lmdb
-      execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} --meta=#{metafn} #{tmpdir}/*assoc.txt"
+      REDUCED =
+        if options[:reduced]
+          "--reduced"
+        else
+          ""
+        end
+      execute.call "python3 #{BIN}/gemma2lmdb.py --db=#{LMDB} #{REDUCED} --meta=#{metafn} #{tmpdir}/*assoc.txt"
     else
       warning.call "If we don't use the --lmdb switch just copy the files. Old behaviour and should be deprecated."
       execute.call "cp -vau #{tmpdir}/*.txt #{Dir.tmpdir}" # note: don't copy .log files - it confuses parallel
