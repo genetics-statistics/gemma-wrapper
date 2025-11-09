@@ -37,9 +37,11 @@ args = parser.parse_args()
 # ASCII
 X=ord('X')
 Y=ord('Y')
+M=ord('M')
 
 snps = {}
 if args.anno:
+    print(f"Reading {args.anno}...",file=sys.stderr)
     for line in open(args.anno, 'r'):
         snp,pos,chrom = re.split(r"[\s,]+",line.rstrip('\n'))
         key = chrom+":"+pos
@@ -87,8 +89,10 @@ with tempfile.TemporaryDirectory() as tmpdir:
                         # chr2 = chr1
                         if chr2 == X:
                             chr = "X"
-                        elif chr1 == Y:
+                        elif chr2 == Y:
                             chr = "Y"
+                        elif chr2 == M:
+                            chr = "M"
                         else:
                             chr = str(chr2)
                         rec = txn.get(key)
