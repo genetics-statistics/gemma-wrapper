@@ -17,6 +17,7 @@ import lmdb
 from struct import *
 import numpy as np
 import scipy.stats as stat
+import math
 
 SIGNIFICANT = 4.0
 
@@ -78,7 +79,8 @@ with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
                             chr = M
                         else:
                             chr = int(chr)
-                        if float(p_lrt) > SIGNIFICANT:
+                        LOD = -math.log10(float(p_lrt))
+                        if LOD >= SIGNIFICANT:
                             chr_c = pack('c',bytes([chr]))
                             key = pack('>cL',chr_c,int(pos))
                             val = pack('=fffff', float(af), float(beta), float(se), float(l_mle), float(p_lrt))
@@ -88,12 +90,12 @@ with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
                                 assert test_pos == int(pos)
                                 test_chr = unpack('c',chr_c)
                                 assert len(val)==20, f"Packed size is expected to be 20, but is {len(val)}"
-                                res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
-                                if res == 0:
-                                    print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
-                                else:
-                                    if float(p_lrt) > 4.0:
-                                        hits.append([chr,int(pos),rs,p_lrt])
+                            res = txn.put(key, bytes(val), dupdata=False, overwrite=False)
+                            if res == 0:
+                                print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
+                            else:
+                                if LOD >= SIGNIFICANT:
+                                    hits.append([chr,int(pos),rs,p_lrt])
 
     with env.begin() as txn:
         with txn.cursor() as curs:
