@@ -27,6 +27,7 @@ args = parser.parse_args()
 # ASCII
 X=ord('X')
 Y=ord('Y')
+M=ord('M')
 
 meta = { "type": "gemma-assoc",
          "version": 1.0,
@@ -38,22 +39,22 @@ hits = [] # track hits
 if args.meta:
     meta["gemma-wrapper"] = json.load(open(args.meta))
 
-# --- Load the traits and do some statistics
-named_values = meta["gemma-wrapper"]["meta"]["trait_values"]
-values = []
-for ind,value in named_values.items():
-    values.append(value)
+if "trait_values" in meta["gemma-wrapper"]["meta"]:
+    # --- Load the traits and do some statistics
+    named_values = meta["gemma-wrapper"]["meta"]["trait_values"]
+    values = []
+    for ind,value in named_values.items():
+       values.append(value)
 
+    a =  np.array(values)
+    # print("@@@@@@",values," mean=",a.mean()," std=",a.std()," kurtosis=",stat.kurtosis(a)," skew=",stat.skew(a))
+    meta["nind"] = round(a.size,4)
+    meta["mean"] = round(a.mean(),4)
+    meta["std"] = round(a.std(),4)
+    meta["skew"] = round(stat.skew(a),4)
+    meta["kurtosis"] = round(stat.kurtosis(a),4)
 
-a =  np.array(values)
-# print("@@@@@@",values," mean=",a.mean()," std=",a.std()," kurtosis=",stat.kurtosis(a)," skew=",stat.skew(a))
-meta["nind"] = round(a.size,4)
-meta["mean"] = round(a.mean(),4)
-meta["std"] = round(a.std(),4)
-meta["skew"] = round(stat.skew(a),4)
-meta["kurtosis"] = round(stat.kurtosis(a),4)
-
-with lmdb.open(args.db,subdir=False) as env:
+with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
     for fn in args.files:
         print(f"Processing {fn}...")
         if "log" in fn:
@@ -68,8 +69,10 @@ with lmdb.open(args.db,subdir=False) as env:
                             continue
                         if (chr =='X'):
                             chr = X
-                        elif (chr =='X'):
+                        elif (chr =='Y'):
                             chr = Y
+                        elif (chr =='M'):
+                            chr = M
                         else:
                             chr = int(chr)
                         # print(f"chr={chr}, type={type(chr)}")
