@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lm
 parser.add_argument('--db',default="gemma.mdb",help="DB name")
 parser.add_argument('--meta',required=False,help="JSON meta file name")
 parser.add_argument('files',nargs='*',help="GEMMA file(s)")
-parser.add_argument('--reduced',required=False,help="Only store minimal information (LOD>4.0, no hits in metadata)")
-parser.add_argument('--debug',required=False,help="Debug mode")
+parser.add_argument('--reduced',action=argparse.BooleanOptionalAction,required=False,help="Only store minimal information (LOD>4.0, no hits in metadata)")
+parser.add_argument('--debug',action=argparse.BooleanOptionalAction,required=False,help="Debug mode")
 args = parser.parse_args()
 
 # ASCII
