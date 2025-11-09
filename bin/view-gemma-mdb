@@ -40,15 +40,16 @@ Y=ord('Y')
 M=ord('M')
 
 snps = {}
-if args.anno:
-    print(f"Reading {args.anno}...",file=sys.stderr)
-    for line in open(args.anno, 'r'):
-        snp,pos,chrom = re.split(r"[\s,]+",line.rstrip('\n'))
-        key = chrom+":"+pos
-        snps[key] = snp
 
 if not args.meta:
     print("name,id,chr,pos,marker,af,beta,se,l_mle,l_lrt,-logP")
+else
+    if args.anno:
+        print(f"Reading {args.anno}...",file=sys.stderr)
+        for line in open(args.anno, 'r'):
+            snp,pos,chrom = re.split(r"[\s,]+",line.rstrip('\n'))
+            key = chrom+":"+pos
+            snps[key] = snp
 
 with tempfile.TemporaryDirectory() as tmpdir:
     print(f"Created temporary directory {tmpdir}",file=sys.stderr)

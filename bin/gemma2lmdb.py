@@ -25,6 +25,7 @@ parser = argparse.ArgumentParser(description='Turn GEMMA assoc output into an lm
 parser.add_argument('--db',default="gemma.mdb",help="DB name")
 parser.add_argument('--meta',required=False,help="JSON meta file name")
 parser.add_argument('files',nargs='*',help="GEMMA file(s)")
+parser.add_argument('--reduced',required=False,help="Only store minimal information (LOD>4.0, no hits in metadata)")
 parser.add_argument('--debug',required=False,help="Debug mode")
 args = parser.parse_args()
 
@@ -80,7 +81,7 @@ with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
                         else:
                             chr = int(chr)
                         LOD = -math.log10(float(p_lrt))
-                        if LOD >= SIGNIFICANT:
+                        if not args.reduced or LOD >= SIGNIFICANT:
                             chr_c = pack('c',bytes([chr]))
                             key = pack('>cL',chr_c,int(pos))
                             val = pack('=fffff', float(af), float(beta), float(se), float(l_mle), float(p_lrt))
@@ -94,7 +95,7 @@ with lmdb.open(args.db,subdir=False,map_size=int(1e9)) as env:
                             if res == 0:
                                 print(f"WARNING: failed to update lmdb record with key {key} -- probably a duplicate {chr}:{pos} ({test_chr_c}:{test_pos})")
                             else:
-                                if LOD >= SIGNIFICANT:
+                                if not args.reduced and LOD >= SIGNIFICANT:
                                     hits.append([chr,int(pos),rs,p_lrt])
 
     with env.begin() as txn:
