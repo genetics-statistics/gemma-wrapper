@@ -478,8 +478,8 @@ FileUtils::mkdir_p options[:cache_dir]
 
 # tmpdir for GEMMA output - note that if there is an error here it is probably parallel failing!
 # if you fail to find the GEMMA error try the --no-parallel --debug switches
-# Dir.mktmpdir do |tmpdir|
-tmpdir = "/tmp/test" # fixate tmpdir for testing
+Dir.mktmpdir do |tmpdir|
+# tmpdir = "/tmp/test" # fixate tmpdir for testing
 FileUtils.rm_rf(tmpdir) if File.exist?(tmpdir)
 
 Dir.mkdir(tmpdir)
