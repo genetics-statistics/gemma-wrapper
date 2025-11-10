@@ -986,7 +986,7 @@ if create_archive
   end
 end
 
-# end # tmpdir
+end # tmpdir
 
 record[:archive] = File.basename(ARCHIVE)
 
