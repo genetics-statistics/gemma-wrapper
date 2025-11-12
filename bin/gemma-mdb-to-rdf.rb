@@ -13,6 +13,11 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
+
+X='X'.ord
+Y='Y'.ord
+M='M'.ord
+
 options = { show_help: false }
 
 opts = OptionParser.new do |o|
@@ -23,8 +28,16 @@ opts = OptionParser.new do |o|
     raise "Annotation input file #{anno} does not exist" if !File.exist?(anno)
   end
 
+  o.on("--run-name NAME", "set name of run") do |b|
+    options[:run_name] = b
+  end
+
   o.on("--meta", "Output metadata only") do |b|
     options[:meta] = b
+  end
+
+  o.on("--snps", "Output snp annotation only") do |b|
+    options[:snps] = b
   end
 
   o.on("--sort", "Sort output by significance") do |b|
@@ -73,10 +86,26 @@ end
 
 snps = {}
 
-if options[:anno]
-  File.open(options[:anno]).each_line do |line|
-    snp,pos,chr = line.split(/[\s,]+/)
-    snps[chr+":"+pos] = snp
+is_anno_mdb = false
+snp_env = nil
+db2 = nil
+
+snpfn = options[:anno]
+
+if snpfn
+  $stderr.print "Reading #{snpfn}\n"
+
+  if snpfn =~ /\.mdb$/
+    is_anno_mdb = true
+    $stderr.print("lmdb #{snpfn}...\n")
+    snp_env = LMDB.new(snpfn, nosubdir: true)
+    snp_db = snp_env.database(File.basename(snpfn),create: false)
+  else
+    # the text file option (GEMMA annotation file)
+    File.open(snpfn).each_line do |line|
+      snp,pos,chr = line.split(/[\s,]+/)
+      snps[chr+":"+pos] = snp
+    end
   end
 end
 
@@ -86,6 +115,61 @@ end
 
 USER=ENV['USER']
 HOSTNAME=Socket.gethostname
+
+used_snps = {}
+
+get_marker_name_and_key = lambda { |chr,pos|
+  location = "#{chr}:#{pos}"
+  if is_anno_mdb
+    chr_c =
+      if chr == "X"
+        X
+      elsif chr == "Y"
+        Y
+      elsif chr == "M"
+        M
+      else
+        chr.to_i
+      end
+    key = [chr_c,pos.to_i].pack("cL>")
+    marker_name = snp_db[key]
+    # p [chr,pos,chr_c,pos.to_i,marker_name,snp_db]
+  else
+    marker_name =
+      if options[:anno] and snps.has_key?(location)
+        snps[location]
+      else
+        snp = "chr#{chr}_#{pos}"
+      end
+    key = location
+  end
+  return marker_name, key
+}
+
+get_marker_info_by_key = lambda { |key|
+  if is_anno_mdb
+    marker_name = snp_db[key]
+    chr1,pos = key.unpack('cL>')
+    chr =
+      if chr1 == X
+        "X"
+      elsif chr1 == Y
+        "Y"
+      elsif chr1 == M
+        "M"
+      else
+        chr1
+      end
+    pos = pos.to_s
+  else
+    chr,pos = key.split(":")
+    marker_name =
+      if snps.has_key? key
+        snps[key]
+      end
+  end
+  return marker_name,chr,pos
+}
 
 ARGV.each do |fn|
   Dir.mktmpdir do |tmpdir|
@@ -114,6 +198,11 @@ ARGV.each do |fn|
       gwa   = meta['gemma-wrapper']['meta']['archive_GWA']
       loco  = meta['gemma-wrapper']['meta']['loco']
       xtime = meta['gemma-wrapper']['input']['time']
+      run = if options[:run_name]
+              options[:run_name]
+            else
+              run   = meta['gemma-wrapper']['input']['name']
+            end
       nind  = meta['nind']
       mean  = meta['mean']
       std   = meta['std']
@@ -124,33 +213,37 @@ ARGV.each do |fn|
       db.each do | key,value |
         chr,pos = key.unpack('cL>') # note pos is big-endian stored for easy sorting
         af,beta,se,l_mle,p_lrt = value.unpack('fffff')
-        snp = "?"
-        location = "#{chr}:#{pos}"
-        if options[:anno] and snps.has_key?(location)
-          snp = snps[location]
+
+        marker,location = get_marker_name_and_key.call(chr,pos)
+
+        if not options[:snps]
+          marker = "Chr#{chr}_#{pos}" if not marker
+          effect = -(beta/2.0)
+          minusLogP = -Math.log10(p_lrt)
+          # p [p_lrt,minusLogP]
+          minusLogP = 0.0 if p_lrt.nan? # not correct, but main thing is it does not show
+          rec = {chr: chr, pos: pos, snp: rdf_normalize(marker).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
+          result.push rec
         end
-        effect = -(beta/2.0)
-        minusLogP = -Math.log10(p_lrt)
-        # p [p_lrt,minusLogP]
-        minusLogP = 0.0 if p_lrt.nan? # not correct, but main thing is it does not show
-        rec = {chr: chr, pos: pos, snp: rdf_normalize(snp).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
-        result.push rec
+        used_snps[location] = true
       end
       env.close
-      if options[:sort]
-        $stderr.print("Sorting...\n")
-        result = result.sort_by { |rec| rec[:logP] }.reverse
-      end
+      if not options[:snps] # output all triples
+        if options[:sort]
+          $stderr.print("Sorting...\n")
+          result = result.sort_by { |rec| rec[:logP] }.reverse
+        end
 
-      @prefix = "GEMMAMapped"
-      hash = gwa[32..39]
-      postfix = rdf_normalize(gwa[41..-8])+"_"+hash
-      s_loco = (loco ? "LOCO" : "")
-      id = "gn:#{@prefix}_#{s_loco}_#{postfix}"
-      print """#{id} a gnt:mappedTrait;
+        @prefix = "GEMMAMapped"
+        hash = gwa[32..39]
+        postfix = rdf_normalize(gwa[41..-8])+"_"+hash
+        s_loco = (loco ? "LOCO" : "")
+        id = "gn:#{@prefix}_#{run}_#{s_loco}_#{postfix}"
+        print """#{id} a gnt:mappedTrait;
       rdfs:label \"GEMMA #{name} trait #{trait} mapped with LOCO (defaults)\";
       gnt:trait gn:publishXRef_#{trait};
       gnt:loco #{loco};
+      gnt:run gn:#{run};
       gnt:time \"#{xtime}\";
       gnt:belongsToGroup gn:setBxd;
       gnt:name \"#{name}\";
@@ -166,27 +259,43 @@ ARGV.each do |fn|
       gnt:user \"#{USER}\".
 """
 
-      first = true
-      result.each do |rec|
-        # we always show the highest hit
-        locus = rec[:snp]
-        locus="unknown" if locus == "?"
-        # for the rest of the hits make sure they are significant and have a snp id:
-        if not first
-          break if rec[:logP] < 4.0
-          next if locus == "unknown"
-        end
-        # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
-        # FIXME locus.capitalize
-        print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
+        first = true
+        result.each do |rec|
+          # we always show the highest hit
+          locus = rec[:snp]
+          locus="unknown" if locus == "?"
+          # for the rest of the hits make sure they are significant and have a snp id:
+          if not first
+            break if rec[:logP] < 4.0
+            next if locus == "unknown"
+          end
+          # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
+          # FIXME locus.capitalize
+          print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
       gnt:mappedSnp #{id};
       gnt:locus gn:#{locus.capitalize};
       gnt:lodScore #{rec[:logP].round(1)};
       gnt:af #{rec[:af]};
       gnt:effect #{rec[:effect]}.
 """
-        first = false
+          first = false
+        end
       end
     end
   end
 end # tmpdir
+
+# p used_snps
+
+if options[:snps] # output SNP annotation only
+  used_snps.each_key do | key |
+    name,chr,pos = get_marker_info_by_key.call(key)
+    if name
+      print """gn:#{rdf_normalize(name)} a gnt:marker;
+                 label \"#{name}\";
+                 gnt:chr  \"#{chr}\";
+                 gnt:pos  #{pos}.
+"""
+    end
+  end
+end
