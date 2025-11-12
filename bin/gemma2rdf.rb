@@ -1,16 +1,17 @@
 #!/usr/bin/env ruby
 #
-# This is a simplified and flexible version of ./gemma-mdb-rdf.rb -- without lmdb
+# This is a simplified and flexible version of ./gemma-mdb-rdf.rb
+#
+# it parses gemma GWA assoc files without lmdb
 #
 #     ./bin/gemma2rdf.rb output/trait-BXDPublish-*-gemma-GWA-hk.assoc.txt
 #
-# will write RDF to stdout
+# and writes RDF to stdout
 #
 # Pjotr Prins (c) 2025
 
 require 'tmpdir'
 require 'json'
-require 'lmdb'
 require 'optparse'
 
 options = { show_help: false }
@@ -68,7 +69,7 @@ end
 TIMEX = Time.now.to_s[..30]
 
 ARGV.each do |fn|
-  $stderr.print("Parsing #{fn}\n")
+  $stderr.print("Parsing #{fn}\n") # assoc files
   header = nil
   recs = []
   File.open(fn).each_line do |line|
