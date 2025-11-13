@@ -292,7 +292,7 @@ if options[:snps] # output SNP annotation only
     name,chr,pos = get_marker_info_by_key.call(key)
     if name
       print """gn:#{rdf_normalize(name)} a gnt:marker;
-                 label \"#{name}\";
+                 rdfs:label \"#{name}\";
                  gnt:chr  \"#{chr}\";
                  gnt:pos  #{pos}.
 """
