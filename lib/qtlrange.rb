@@ -1,4 +1,11 @@
 # This module handles a list of chromosomes and QTL ranges, tracking SNPs
+#
+# Basically we have a QTL locus (QLocus) that tracks chr,pos,af and lod for each hit.
+# QRange is a set of QLocus which also tracks some stats chr,min,max,snps,max_af,lod.
+# It can compute whether two QTL (QRange) overlap.
+# Next we have a container that tracks the QTL (QRanges) on a chromosome.
+#
+# Finally there is a diff function that can show the differences on a chromosome (QRanges) for two mapped traits.
 
 MAX_SNP_DISTANCE_BPS = 50_000_000.0
 MAX_SNP_DISTANCE = MAX_SNP_DISTANCE_BPS/10**6
