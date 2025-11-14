@@ -59,9 +59,12 @@ module QTL
 
     # See if a QRange overlaps with one of ours
     def overlaps? qtl
-      return true if qtl.min >= @min and qtl.max <= @max # qtl falls with bounds
+      return true if qtl.min >= @min and qtl.max <= @max # qtl falls within bounds
+      return true if @min >= qtl.min and @max <= qtl.max # qtl falls within bounds
       return true if qtl.min <= @min and qtl.max >= @min # qtl over left boundary
+      return true if @min <= qtl.min and @min >= qtl.max # qtl over left boundary
       return true if qtl.min <= @max and qtl.max >= @max # qtl over right boundary
+      return true if @max <= qtl.min and @max >= qtl.max # qtl over right boundary
       false
     end
 
@@ -84,20 +87,53 @@ module QTL
     end
 
     def add_locus locus
+      # --- track Qranges
       chr = locus.chr
       @chromosome[chr] = [] if not @chromosome.has_key? chr
       ranges = @chromosome[chr]
+      # --- here we look for overlap
       covered = false
       nrange = QRange.new(locus)
       ranges.each do |range|
         if range.in_range?(locus)
           range.add(locus)
           covered = true
+          break
         end
       end
       ranges.append(nrange) if not covered
       # make sure they are ordered
       @chromosome[chr] = ranges.sort_by { |r| r.min }
+    end
+
+    def filter
+      print "\n\n"
+      @chromosome.each do | chr, qtls |
+        qtls.sort_by { |qtl| qtl.chr }.each do |qtl|
+          p qtl if qtl.snps.size > 1
+        end
+      end
+    end
+
+    def rebin
+      filter
+      # because we grow bins there may still be some overlap
+      merge_list = []
+      @chromosome.each do |chr, qtls|
+        # make sure the bins are sorted
+        prev = nil
+        qtls.each do | qtl|
+          if prev and qtl.overlaps? prev
+            # print "***OVERLAP***"
+            # p [prev, qtl]
+            merge_list.push [chr,prev,qtl]
+          end
+          prev = qtl
+        end
+      end
+      print "\nOVERLAP\n"
+      p merge_list
+      exit 1
     end
 
     def print_rdf(id)
@@ -123,7 +159,8 @@ module QTL
     end
 
     def to_s
-      "[#{@name},#{@method}] =>{" + chromosome.sort.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
+      # p chromosome
+      "[#{@name},#{@method}] =>{" + chromosome.sort_by { |r| r[0] }.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
 
   end
