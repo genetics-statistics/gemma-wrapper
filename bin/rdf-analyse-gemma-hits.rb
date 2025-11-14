@@ -25,9 +25,9 @@ options = { show_help: false }
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] assoc filename(s)"
 
-  o.on_tail('--header', 'Write header') do
-    options[:header] = true
-  end
+  # o.on_tail('--header', 'Write header') do
+  #   options[:header] = true
+  # end
 
   o.on('-o','--output TYPE', 'Output TEXT (default) or RDF') do |type|
     options[:output] = type.to_sym
