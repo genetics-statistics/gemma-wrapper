@@ -126,7 +126,7 @@ module QTL
 
     def pangenome_filter
       @chromosome = @chromosome.hmap{ |chr,qtls|
-        [ chr, qtls.delete_if { |qtl| qtl.lod.max < 6.0 or (qtl.lod.max < 7.0 - qtl.snps.size/2)} ]
+        [ chr, qtls.delete_if { |qtl| qtl.lod.max < 6.0 or (qtl.lod.max < 7.5 - qtl.snps.size/2)} ]
       }.delete_if { |chr, qtls| qtls.empty? }
     end
 
@@ -167,6 +167,7 @@ module QTL
     gnt:qtlChr      \"#{chr}\";
     gnt:qtlStart    #{qtl.min} ;
     gnt:qtlStop     #{qtl.max} ;
+    gnt:qtlSnps     #{qtl.snps.size} ;
 """
           print "    gnt:qtlAF       #{qtl.max_af} ;\n" if qtl.max_af
           print "    gnt:qtlLOD      #{qtl.lod.max} .\n"
@@ -186,15 +187,19 @@ module QTL
   end
 end
 
-# Take two QRanges and say what is happening
+# Take two QRanges and say what is happening. The first case is if the first set is empty and every QTL
+# in the second set is a new one. The second case we compare all existing QTL. I think we can skip
+# the first scenario!
 def qtl_diff(id, set1, set2, print_rdf)
   $stderr.print set1,"\n"
   $stderr.print set2,"\n"
   name = set1.name
   # we check by chromosome
   set2.chromosome.each do | chr,qtls2 |
+    # --- build two sets for comparison
     qtls1 = set1.chromosome[chr]
     if qtls1 == nil
+      # --- handle the case where one set is empty, so every QTL is a new one
       qtls2.each do | qtl2 |
         if print_rdf # Output QTL to RDF
           qtlid = gnqtlid(id,qtl2)
@@ -205,6 +210,7 @@ def qtl_diff(id, set1, set2, print_rdf)
       end
       $stderr.print ["#{name}: NO #{set1.method} results, new QTL(s) #{set2.method} Chr #{chr}!",qtls2],"\n"
     else
+      # --- compare two sets with existing QTL
       qtls2.each do | qtl2 |
         match = false
         qtls1.each do | qtl1 |
