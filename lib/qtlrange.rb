@@ -11,7 +11,15 @@ MAX_SNP_DISTANCE_BPS = 50_000_000.0
 MAX_SNP_DISTANCE = MAX_SNP_DISTANCE_BPS/10**6
 LOD_MIN = 4.0
 
+class Hash
+  def hmap(&block)
+    Hash[self.map {|k, v| block.call(k,v) }]
+  end
+end
+
+
 module QTL
+
 
   class QLocus
     attr :id,:chr,:pos,:af,:lod
@@ -45,6 +53,8 @@ module QTL
       test_lod = locus.lod
       return if test_lod == nil
       @max_af=locus.af if @max_af==nil or locus.af > @max_af
+      mirror_af = 1.0-locus.af
+      @max_af=mirror_af if @max_af==nil or mirror_af > @max_af
       if @lod.min == nil or @lod.max == nil
         @lod = Range.new(test_lod,test_lod)
       else
@@ -59,13 +69,23 @@ module QTL
 
     # See if a QRange overlaps with one of ours
     def overlaps? qtl
-      return true if qtl.min >= @min and qtl.max <= @max # qtl falls within bounds
-      return true if @min >= qtl.min and @max <= qtl.max # qtl falls within bounds
-      return true if qtl.min <= @min and qtl.max >= @min # qtl over left boundary
-      return true if @min <= qtl.min and @min >= qtl.max # qtl over left boundary
-      return true if qtl.min <= @max and qtl.max >= @max # qtl over right boundary
-      return true if @max <= qtl.min and @max >= qtl.max # qtl over right boundary
+      return true if qtl.min >= @min and qtl.max <= @max # qtl falls within bounds    {  <   >  }
+      return true if @min >= qtl.min and @max <= qtl.max # qtl falls within bounds    <  {   }  >
+
+      return true if qtl.min <= @min and qtl.max >= @min # qtl over left boundary     {  <   }  >
+      return true if @min <= qtl.min and @min >= qtl.max # qtl over left boundary     <  {   >  }
+      # return true if qtl.min <= @max and qtl.max >= @max # qtl over right boundary  <  {   >  } dup
+      # return true if @max <= qtl.min and @max >= qtl.max # qtl over right boundary  {  <   }  > dup
       false
+    end
+
+    def combine! qtl
+      @min = [@min,qtl.min].min
+      @max = [@max,qtl.max].max
+      @max_af = [@max_af,qtl.max_af].max
+      @lod = Range.new([qtl.lod.min,@lod.min].min,[qtl.lod.max,@lod.max].max)
+      @snps = @snps.append(qtl.snps).flatten
+      self
     end
 
     def inspect
@@ -107,33 +127,34 @@ module QTL
     end
 
     def filter
-      print "\n\n"
-      @chromosome.each do | chr, qtls |
-        qtls.sort_by { |qtl| qtl.chr }.each do |qtl|
-          p qtl if qtl.snps.size > 1
-        end
-      end
+      @chromosome = @chromosome.hmap{ |chr,qtls|
+        [ chr, qtls.map { |qtl| qtl } ]
+      }
+      #@chromosome.each do | chr, qtls |
+      #  qtls.sort_by { |qtl| qtl.chr }.each do |qtl|
+      #    p qtl if qtl.snps.size > 1
+      #  end
+      #end
     end
 
     def rebin
-      filter
       # because we grow bins there may still be some overlap
-      merge_list = []
+      new_chromosome = {}
       @chromosome.each do |chr, qtls|
         # make sure the bins are sorted
         prev = nil
+        new_qtls = []
         qtls.each do | qtl|
           if prev and qtl.overlaps? prev
-            # print "***OVERLAP***"
-            # p [prev, qtl]
-            merge_list.push [chr,prev,qtl]
+            new_qtls[-1] = qtl.combine!(prev)
+          else
+            new_qtls.push qtl
           end
           prev = qtl
         end
+        new_chromosome[chr] = new_qtls
       end
-      print "\nOVERLAP\n"
-      p merge_list
-      exit 1
+      @chromosome = new_chromosome
     end
 
     def print_rdf(id)

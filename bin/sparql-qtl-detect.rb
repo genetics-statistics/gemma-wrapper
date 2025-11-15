@@ -41,13 +41,13 @@ qtls = QTL::QRanges.new("10002","test")
 ARGV.each do |fn|
   CSV.foreach(fn,headers: true, col_sep: "\t") do |hit|
     lod = hit["lod"].to_f
-    if lod > 5.0
+    if lod > 5.5
       qlocus = QTL::QLocus.new(hit["nodeid"],hit["chr"],hit["pos"].to_f/10**6,hit["af"].to_f,lod)
       qtls.add_locus(qlocus)
     end
   end
 end
 qtls.rebin
-# print qtls
-# qtls.filter
-# print qtls
+qtls.filter
+
+print qtls
