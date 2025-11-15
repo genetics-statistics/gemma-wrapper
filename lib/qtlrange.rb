@@ -17,9 +17,7 @@ class Hash
   end
 end
 
-
 module QTL
-
 
   class QLocus
     attr :id,:chr,:pos,:af,:lod
@@ -150,6 +148,10 @@ module QTL
         new_chromosome[chr] = new_qtls
       end
       @chromosome = new_chromosome
+    end
+
+    def gnqtlid(id,qtl)
+      "#{id}_QTL_Chr#{qtl.chr}_#{qtl.min.round}_#{qtl.max.round}"
     end
 
     def print_rdf(rdf_trait_id)
