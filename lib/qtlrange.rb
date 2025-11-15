@@ -126,15 +126,10 @@ module QTL
       @chromosome[chr] = ranges.sort_by { |r| r.min }
     end
 
-    def filter
+    def pangenome_filter
       @chromosome = @chromosome.hmap{ |chr,qtls|
-        [ chr, qtls.map { |qtl| qtl } ]
-      }
-      #@chromosome.each do | chr, qtls |
-      #  qtls.sort_by { |qtl| qtl.chr }.each do |qtl|
-      #    p qtl if qtl.snps.size > 1
-      #  end
-      #end
+        [ chr, qtls.delete_if { |qtl| qtl.lod.max < 6.0 or (qtl.lod.max < 7.0 - qtl.snps.size/2)} ]
+      }.delete_if { |chr, qtls| qtls.empty? }
     end
 
     def rebin
@@ -181,7 +176,7 @@ module QTL
 
     def to_s
       # p chromosome
-      "[#{@name},#{@method}] =>{" + chromosome.sort_by { |r| r[0] }.map{|k,v| "#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
+      "[#{@name},#{@method}] =>{" + chromosome.sort_by { |r| r[0].rjust(3) }.map{|k,v| "\n#{k.inspect}=>#{v.inspect}"}.join(", ") + "}"
     end
 
   end
