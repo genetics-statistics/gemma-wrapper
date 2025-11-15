@@ -19,7 +19,6 @@ opts = OptionParser.new do |o|
 
   o.on('-o','--output TYPE', 'Output TEXT (default) or RDF') do |type|
     options[:output] = type.to_sym
-    options[:rdf] = true if type == "RDF"
   end
 
   o.separator ""
@@ -37,12 +36,16 @@ if options[:show_help] or ARGV.size == 0
   exit 1
 end
 
+OUTPUT_RDF = options[:output] == :RDF
+
 qtls = QTL::QRanges.new("10002","test")
+trait_id = nil
 ARGV.each do |fn|
   CSV.foreach(fn,headers: true, col_sep: "\t") do |hit|
+    trait_id = hit["traitid"] if not trait_id
     lod = hit["lod"].to_f
-    if lod > 5.0
-      qlocus = QTL::QLocus.new(hit["nodeid"],hit["chr"],hit["pos"].to_f/10**6,hit["af"].to_f,lod)
+    if lod > 5.0 # set for pangenome input
+      qlocus = QTL::QLocus.new(hit["snp"],hit["chr"],hit["pos"].to_f/10**6,hit["af"].to_f,lod)
       qtls.add_locus(qlocus)
     end
   end
@@ -50,4 +53,8 @@ end
 qtls.rebin
 qtls.pangenome_filter
 
-print qtls
+if OUTPUT_RDF
+  qtls.print_rdf trait_id
+else
+  print qtls
+end

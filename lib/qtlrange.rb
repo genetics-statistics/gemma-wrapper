@@ -152,13 +152,15 @@ module QTL
       @chromosome = new_chromosome
     end
 
-    def print_rdf(id)
+    def print_rdf(rdf_trait_id)
       chromosome.sort.each do |chr,r|
         r.each do | qtl |
-          qtlid = gnqtlid(id,qtl)
+          tid = gnid(rdf_trait_id)
+          qtl_id = gnqtlid(tid,qtl)
+
           print """
-#{qtlid}
-    gnt:mappedQTL   #{id};
+#{qtl_id}
+    gnt:mappedQTL   #{tid};
     rdfs:label      \"GEMMA BXDPublish QTL\";
     gnt:qtlChr      \"#{chr}\";
     gnt:qtlStart    #{qtl.min} ;
@@ -167,7 +169,7 @@ module QTL
           print "    gnt:qtlAF       #{qtl.max_af} ;\n" if qtl.max_af
           print "    gnt:qtlLOD      #{qtl.lod.max} .\n"
           qtl.snps.each do |snp|
-            print """#{qtlid} gnt:mappedSnp #{gnid(snp)} .
+            print """#{qtl_id} gnt:mappedSnp #{gnid(snp)} .
 """
           end
         end
