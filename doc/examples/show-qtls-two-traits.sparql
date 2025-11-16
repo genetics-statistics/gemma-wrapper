@@ -14,7 +14,7 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT DISTINCT ?t ?s1 ?e1 WHERE {
+SELECT DISTINCT ?t ?s1 ?e1 ?overlap WHERE {
   ?traitid a gnt:mappedTrait ;
   gnt:traitId ?t .
   ?qtl gnt:mappedQTL ?traitid ;
@@ -34,10 +34,10 @@ SELECT DISTINCT ?t ?s1 ?e1 WHERE {
   }
   FILTER (?t = "10002") .
   # The following adds a filter to select overlapping QTLs
-  BIND ((?s2 >= ?s1 && ?e2 <= ?e1) || (?s1 >= ?s2 && ?e1 <= ?e2) as ?overlap) .
-  MINUS {
-    ?traitid a gnt:mappedTrait ;
-    gnt:traitId ?t .
+  BIND ((?s2 >= ?s1 && ?s2 <= ?e1) || (?e2 >= ?s1 && ?e2 <= ?e1) as ?overlap) .
+  MINUS { # if overlapping, drop the QTL
+    # ?traitid a gnt:mappedTrait ;
+    # gnt:traitId ?t .
     ?qtl gnt:mappedQTL ?traitid .
     FILTER(?overlap)
   }
