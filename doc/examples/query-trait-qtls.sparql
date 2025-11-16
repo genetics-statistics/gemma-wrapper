@@ -1,3 +1,4 @@
+
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX gn: <http://genenetwork.org/id/>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -12,12 +13,16 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT * WHERE {
+SELECT ?qtl ?lod ?chr ?start ?stop (count(?snp) as ?snps) WHERE {
 ?traitid a gnt:mappedTrait ;
-            gnt:traitId "10002" .
+  gnt:traitId "10002" .
 ?qtl gnt:mappedQTL ?traitid ;
-       gnt:qtlChr ?chr ;
-       gnt:qtlStart ?start ;
-       gnt:qtlStop ?stop ;
-       gnt:qtlLOD ?lod .
+  gnt:qtlChr ?chr ;
+  gnt:qtlStart ?start ;
+  gnt:qtlStop ?stop ;
+  gnt:qtlLOD ?lod .
+?qtl gnt:mappedSnp ?snp .
+?traitid2 a gnt:mappedTrait ;
+  gnt:traitId "10001" .
+?qtl2 gnt:mappedQTL ?traitid2 .
 }
