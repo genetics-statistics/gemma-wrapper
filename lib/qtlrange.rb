@@ -67,14 +67,8 @@ module QTL
 
     # See if a QRange overlaps with one of ours
     def overlaps? qtl
-      return true if qtl.min >= @min and qtl.max <= @max # qtl falls within bounds    {  <   >  }
-      return true if @min >= qtl.min and @max <= qtl.max # qtl falls within bounds    <  {   }  >
-
-      return true if qtl.min <= @min and qtl.max >= @min # qtl over left boundary     {  <   }  >
-      return true if @min <= qtl.min and @min >= qtl.max # qtl over left boundary     <  {   >  }
-      # return true if qtl.min <= @max and qtl.max >= @max # qtl over right boundary  <  {   >  } dup
-      # return true if @max <= qtl.min and @max >= qtl.max # qtl over right boundary  {  <   }  > dup
-      false
+      #  { <  } or { > }
+      (qtl.min >= @min and qtl.min <= @max) or (qtl.max >= @min and qtl.max <= @max)
     end
 
     def combine! qtl
