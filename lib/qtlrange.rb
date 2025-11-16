@@ -120,7 +120,7 @@ module QTL
 
     def pangenome_filter
       @chromosome = @chromosome.hmap{ |chr,qtls|
-        [ chr, qtls.delete_if { |qtl| qtl.lod.max < 6.0 or (qtl.lod.max < 7.5 - qtl.snps.size/2)} ]
+        [ chr, qtls.delete_if { |qtl| qtl.lod.max < 6.0 } ]
       }.delete_if { |chr, qtls| qtls.empty? }
     end
 
