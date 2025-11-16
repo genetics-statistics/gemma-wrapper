@@ -13,13 +13,25 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?qtl ?lod ?chr ?start ?stop (count(?snp) as ?snps) WHERE {
-?traitid a gnt:mappedTrait ;
-  gnt:traitId "10002" .
-?qtl gnt:mappedQTL ?traitid ;
+SELECT ?t ?s1 ?e1 ?t2 ?s2 ?e2 WHERE {
+  ?traitid a gnt:mappedTrait ;
+  gnt:traitId ?t .
+  ?qtl gnt:mappedQTL ?traitid ;
   gnt:qtlChr ?chr ;
-  gnt:qtlStart ?start ;
-  gnt:qtlStop ?stop ;
-  gnt:qtlLOD ?lod .
-?qtl gnt:mappedSnp ?snp .
-}
+  gnt:qtlStart ?s1 ;
+  gnt:qtlStop ?e1 .
+  {
+    SELECT * WHERE {
+      ?tid a gnt:mappedTrait ;
+      gnt:traitId "10079" ;
+      gnt:traitId ?t2 .
+      ?qtl2 gnt:mappedQTL ?tid ;
+      gnt:qtlChr ?chr ;
+      gnt:qtlStart ?s2 ;
+      gnt:qtlStop ?e2 .
+    }
+  }
+  FILTER (?t = "10002") .
+  # The following adds a filter to select non-overlapping QTLs
+  # FILTER ((?s2 > ?s1 && ?e2 > ?e1) || (?s2 < ?s1 && ?e2 < ?e1)) .
+} LIMIT 10
