@@ -67,8 +67,10 @@ module QTL
 
     # See if a QRange overlaps with one of ours
     def overlaps? qtl
-      #  { <  } or { > }
-      (qtl.min >= @min and qtl.min <= @max) or (qtl.max >= @min and qtl.max <= @max)
+      #  { <  } or { > } or { < > } or  < { } >
+      (qtl.min >= @min and qtl.min <= @max) or
+      (qtl.max >= @min and qtl.max <= @max) or
+      (qtl.min <= @min and qtl.max >= @max)
     end
 
     def combine! qtl
@@ -148,7 +150,7 @@ module QTL
       "#{id}_QTL_Chr#{qtl.chr}_#{qtl.min.round}_#{qtl.max.round}"
     end
 
-    def print_rdf(rdf_trait_id)
+    def print_rdf(trait,rdf_trait_id)
       chromosome.sort.each do |chr,r|
         r.each do | qtl |
           tid = gnid(rdf_trait_id)
@@ -157,7 +159,7 @@ module QTL
           print """
 #{qtl_id}
     gnt:mappedQTL   #{tid};
-    rdfs:label      \"GEMMA BXDPublish QTL\";
+    rdfs:label      \"QTL #{trait} Chr#{chr}:#{qtl.min.round}-#{qtl.max.round}\";
     gnt:qtlChr      \"#{chr}\";
     gnt:qtlStart    #{qtl.min} ;
     gnt:qtlStop     #{qtl.max} ;

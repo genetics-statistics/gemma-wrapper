@@ -38,7 +38,9 @@ end
 
 OUTPUT_RDF = options[:output] == :RDF
 
-qtls = QTL::QRanges.new("10002","test")
+trait = "10002"
+
+qtls = QTL::QRanges.new(trait,"test")
 trait_id = nil
 ARGV.each do |fn|
   CSV.foreach(fn,headers: true, col_sep: "\t") do |hit|
@@ -54,7 +56,7 @@ qtls.rebin
 qtls.pangenome_filter
 
 if OUTPUT_RDF
-  qtls.print_rdf trait_id
+  qtls.print_rdf trait,trait_id
 else
   print qtls
 end

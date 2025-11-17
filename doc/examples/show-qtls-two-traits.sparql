@@ -34,7 +34,10 @@ SELECT DISTINCT ?t ?s1 ?e1 ?overlap WHERE {
   }
   FILTER (?t = "10002") .
   # The following adds a filter to select overlapping QTLs
-  BIND ((?s2 >= ?s1 && ?s2 <= ?e1) || (?e2 >= ?s1 && ?e2 <= ?e1) as ?overlap) .
+  # Overlap: { < } or { > } or { <> } or < {} >
+  BIND (((?s2 >= ?s1 && ?s2 <= ?e1) ||
+         (?e2 >= ?s1 && ?e2 <= ?e1) ||
+         (?s1 >= ?s2 && ?e1 <= ?e2))  as ?overlap) .
   MINUS { # if overlapping, drop the QTL
     # ?traitid a gnt:mappedTrait ;
     # gnt:traitId ?t .
