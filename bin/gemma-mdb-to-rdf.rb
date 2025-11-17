@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 #
+# Take the GWA files as input (*GWA.tar.xz) and write out to RDF. If you provide the SNP annotations their names will be plugged in.
+# Otherwise it will use naming based on location (chr+pos).
+#
 # If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
 #
 #   env GEM_PATH=tmp/ruby GEM_HOME=tmp/ruby gem install lmdb
@@ -13,6 +16,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
+LOD_THRESHOLD = 5.0
 
 X='X'.ord
 Y='Y'.ord
@@ -222,8 +226,10 @@ ARGV.each do |fn|
           minusLogP = -Math.log10(p_lrt)
           # p [p_lrt,minusLogP]
           minusLogP = 0.0 if p_lrt.nan? # not correct, but main thing is it does not show
-          rec = {chr: chr, pos: pos, snp: rdf_normalize(marker).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
-          result.push rec
+          if minusLogP >= LOD_THRESHOLD
+            rec = {chr: chr, pos: pos, snp: rdf_normalize(marker).capitalize, af: af.round(3), se: se.round(3), effect: effect.round(3), logP: minusLogP.round(2)}
+            result.push rec
+          end
         end
         used_snps[location] = true
       end
@@ -266,7 +272,7 @@ ARGV.each do |fn|
           locus="unknown" if locus == "?"
           # for the rest of the hits make sure they are significant and have a snp id:
           if not first
-            break if rec[:logP] < 4.0
+            break if rec[:logP] < LOD_THRESHOLD # superfluous
             next if locus == "unknown"
           end
           # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
