@@ -13,11 +13,17 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?marker (count(?traitid) as ?traits) WHERE {
-  ?snp a gnt:mappedLocus ;
-  gnt:mappedSnp ?trait.
-  ?trait gnt:run gn:test ;
-     gnt:traitId ?traitid .
-  # ?snp gnt:locus gn:A8825673_0 .
-  ?snp gnt:locus ?marker .
-} GROUP BY ?marker ORDER BY DESC(?traits) LIMIT 1000
+SELECT ?marker ?chr ?pos ?traits WHERE {
+  {
+    SELECT ?marker ?chr (count(?traitid) as ?traits) WHERE {
+      ?snp a gnt:mappedLocus ;
+      gnt:mappedSnp ?trait.
+      ?trait gnt:run gn:test ;
+      gnt:traitId ?traitid .
+      # ?snp gnt:locus gn:A8825673_0 .
+      ?snp gnt:locus ?marker .
+      ?marker gnt:chr ?chr .
+    } GROUP BY ?marker ?chr LIMIT 10
+    }
+  ?marker gnt:pos ?pos .
+} LIMIT 10
