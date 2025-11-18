@@ -1,4 +1,3 @@
-# Lists the highest ranked QTL on CHR1 from different runs
 
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX gn: <http://genenetwork.org/id/>
@@ -14,14 +13,11 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?qtl ?lod ?chr ?start ?stop (count(?snp) as ?snps) WHERE {
-?traitid a gnt:mappedTrait ;
-  gnt:traitId ?tid .
-?qtl gnt:mappedQTL ?traitid ;
-  gnt:qtlChr "1" ;
-  gnt:qtlStart ?start ;
-  gnt:qtlStop ?stop ;
-  gnt:qtlLOD ?lod .
-  FILTER(?lod > 6.0) .
-?qtl gnt:mappedSnp ?snp .
-} ORDER BY DESC(?lod) LIMIT 100
+SELECT ?marker (count(?traitid) as ?traits) WHERE {
+  ?snp a gnt:mappedLocus ;
+  gnt:mappedSnp ?trait.
+  ?trait gnt:run gn:test ;
+     gnt:traitId ?traitid .
+  # ?snp gnt:locus gn:A8825673_0 .
+  ?snp gnt:locus ?marker .
+} GROUP BY ?marker ORDER BY DESC(?traits) LIMIT 1000

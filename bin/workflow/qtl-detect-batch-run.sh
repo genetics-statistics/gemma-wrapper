@@ -5,11 +5,11 @@
 
 export TMPDIR=./tmp
 export RDF=pan-qtl.rdf
-./bin/gemma2rdf.rb --header > $RDF
 
-for id in `head -1 pan-ids.txt` ; do
+for id in `cat pan-ids-sorted.txt` ; do
     echo Precomputing $0 for $id
-    curl -G http://sparql-test.genenetwork.org/sparql -H "Accept: application/json; charset=utf-8" --data-urlencode query="
+    echo "gnt:traitId $id ."
+    curl -G http://sparql-test.genenetwork.org/sparql -H "Accept: text/tab-separated-values; charset=utf-8" --data-urlencode query="
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX gn: <http://genenetwork.org/id/>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
@@ -24,7 +24,22 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT * WHERE { ?traitid a gnt:mappedTrait ; gnt:traitId ?trait ; gnt:kurtosis ?k . } LIMIT 3
-"
+SELECT ?traitid ?lod ?af ?snp ?chr ?pos FROM <http://pan-test.genenetwork.org> WHERE {
+?traitid a gnt:mappedTrait;
+         gnt:run gn:test ;
+         gnt:traitId \"$id\" ;
+         gnt:traitId ?trait .
+?snp gnt:mappedSnp ?traitid ;
+        gnt:locus ?locus ;
+        gnt:lodScore ?lod ;
+        gnt:af ?af .
+FILTER(?lod >= 5.0) .
+?locus rdfs:label ?marker ;
+         gnt:chr ?chr ;
+         gnt:pos ?pos .
+} ORDER BY DESC(?lod)
+" > $id.hits.txt
+
+  ../../bin/sparql-qtl-detect.rb --header $id.hits.txt -o RDF >> $RDF
 
 done

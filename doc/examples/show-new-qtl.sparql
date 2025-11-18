@@ -14,22 +14,24 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT DISTINCT ?t ?s1 ?e1 ?overlap WHERE {
+# SELECT DISTINCT ?t ?s1 ?e1 ?overlap WHERE {
+SELECT DISTINCT * WHERE {
   ?traitid a gnt:mappedTrait ;
-  gnt:traitId ?t .
+    gnt:traitId ?t .
+  MINUS { ?t gnt:run gn:test } .
   ?qtl gnt:mappedQTL ?traitid ;
   gnt:qtlChr ?chr ;
-  gnt:qtlStart ?s1 ;
-  gnt:qtlStop ?e1 .
+  gnt:qtlStart ?s2 ;
+  gnt:qtlStop ?e2 .
   {
     SELECT * WHERE {
       ?tid a gnt:mappedTrait ;
-      gnt:traitId "10079" ;
-      gnt:traitId ?t2 .
+      gnt:run gn:test ;
+      gnt:traitId ?t .
       ?qtl2 gnt:mappedQTL ?tid ;
       gnt:qtlChr ?chr ;
-      gnt:qtlStart ?s2 ;
-      gnt:qtlStop ?e2 .
+      gnt:qtlStart ?s1 ;
+      gnt:qtlStop ?e1 .
     }
   }
   FILTER (?t = "10002") .
@@ -39,9 +41,8 @@ SELECT DISTINCT ?t ?s1 ?e1 ?overlap WHERE {
          (?e2 >= ?s1 && ?e2 <= ?e1) ||
          (?s1 >= ?s2 && ?e1 <= ?e2))  as ?overlap) .
   MINUS { # if overlapping, drop the QTL
-    # ?traitid a gnt:mappedTrait ;
-    # gnt:traitId ?t .
     ?qtl gnt:mappedQTL ?traitid .
-    FILTER(?overlap)
+    FILTER(?overlap && ?tid != ?tid2)
   }
-} LIMIT 10
+  # FILTER(?overlap && ?tid != ?tid2)
+} LIMIT 100

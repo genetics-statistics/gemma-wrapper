@@ -1,4 +1,4 @@
-# Lists the highest ranked QTL on CHR1 from different runs
+# List all QTLs for two runs
 
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX gn: <http://genenetwork.org/id/>
@@ -14,14 +14,16 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?qtl ?lod ?chr ?start ?stop (count(?snp) as ?snps) WHERE {
-?traitid a gnt:mappedTrait ;
-  gnt:traitId ?tid .
-?qtl gnt:mappedQTL ?traitid ;
-  gnt:qtlChr "1" ;
+SELECT DISTINCT ?t ?lod (count(?snp) as ?snps) ?chr ?s ?e WHERE {
+  ?traitid a gnt:mappedTrait ;
+  gnt:traitId ?t .
+  # MINUS { ?traitid gnt:run gn:test } # use if you want the original GEMMA QTL
+  ?traitid gnt:run gn:test . # use if you want the new QTL
+  ?qtl gnt:mappedQTL ?traitid ;
+  gnt:qtlChr ?chr ;
+  gnt:qtlLOD ?lod ;
   gnt:qtlStart ?start ;
-  gnt:qtlStop ?stop ;
-  gnt:qtlLOD ?lod .
-  FILTER(?lod > 6.0) .
-?qtl gnt:mappedSnp ?snp .
-} ORDER BY DESC(?lod) LIMIT 100
+  gnt:qtlStop ?end .
+  ?qtl gnt:mappedSnp ?snp .
+  FILTER (?t = "10002" && ?lod >= 5.0 ) .
+} LIMIT 100
