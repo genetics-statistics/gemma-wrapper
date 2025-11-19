@@ -13,17 +13,19 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?marker ?chr ?pos ?traits WHERE {
+SELECT ?name ?chr ?pos ?traits FROM <http://pan-test.genenetwork.org> WHERE {
   {
-    SELECT ?marker ?chr (count(?traitid) as ?traits) WHERE {
+    SELECT ?marker (count(?traitid) as ?traits) WHERE {
       ?snp a gnt:mappedLocus ;
       gnt:mappedSnp ?trait.
       ?trait gnt:run gn:test ;
       gnt:traitId ?traitid .
-      # ?snp gnt:locus gn:A8825673_0 .
       ?snp gnt:locus ?marker .
-      ?marker gnt:chr ?chr .
-    } GROUP BY ?marker ?chr LIMIT 10
-    }
-  ?marker gnt:pos ?pos .
-} LIMIT 10
+    } GROUP BY ?marker
+  }
+  FILTER (?traits > 30) .
+  ?marker gnt:pos ?pos ;
+  gnt:chr ?chr ;
+  rdfs:label ?name.
+  FILTER(contains(?name,"Marker") && ?pos < 10000) # because of duplicates in DB
+} ORDER BY DESC(?traits)
