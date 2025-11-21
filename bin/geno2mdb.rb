@@ -2,7 +2,7 @@
 #
 # Convert a geno file to lmdb. Example:
 #
-#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>-1}' --pack 'C*'
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>-1}' --pack 'C*' --geno-json BXD.geno.json
 #
 # If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
 #
@@ -26,7 +26,7 @@ opts = OptionParser.new do |o|
     options[:input] = type
   end
 
-  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 are faster') do |eval|
+  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 are faster (default is G0-2)') do |eval|
     options[:eval] = eval
   end
 
@@ -34,8 +34,8 @@ opts = OptionParser.new do |o|
     options[:pack] = pack
   end
 
-  o.on('--json ANNO', 'JSON gn-geno-to-gemma annotation file') do |json|
-    options[:json] = json
+  o.on('--geno-json JSON', 'JSON gn-geno-to-gemma annotation file') do |json|
+    options[:geno_json] = json
   end
 
   # o.on('-a','--anno FILEN', 'Annotation file') do |anno|
@@ -77,13 +77,15 @@ def convert gs, func
   res.pack(PACK)
 end
 
+json = JSON.parse(File.read(options[:geno_json]))
+
 meta = {
   "type" => "gemma-geno",
   "version" => 1.0,
   "eval" => options[:eval].to_s,
   "key-format" => "string",
   "rec-format" => PACK,
-  "geno" => {}
+  "geno" => json
 }
 
 cols = -1
@@ -106,10 +108,10 @@ ARGV.each_with_index do |fn|
     end
     begin
       db[marker] =
-        case options[:pack]
-        when  'G0-1'
+        case options[:eval]
+        when  "G0-1"
           convert(rest, lambda { |g| G0_1[g] })
-        when  'G0-2'
+        when  "G0-2"
           convert(rest, lambda { |g| G0_2[g] })
         else
           convert(rest, lambda { |g| eval "#{eval(options[:eval])}[g]" })
@@ -118,11 +120,11 @@ ARGV.each_with_index do |fn|
       raise "Problem at line #{count}: #{line}"
     end
   end
-  p db.size
+  db['meta'] = meta.to_json
   env.close
 end
 
 raise "Empty set" if cols == -1
 
-meta["geno"]["cols"] = cols
-$stderr.print meta,"\n"
+# meta["geno"]["cols"] = cols
+print meta.to_json,"\n"
