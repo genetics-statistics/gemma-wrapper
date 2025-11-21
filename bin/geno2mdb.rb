@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 #
-# Convert a geno file to lmdb
+# Convert a geno file to lmdb. Example:
+#
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>-1}' --pack 'C*'
 #
 # If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
 #
@@ -15,7 +17,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-options = { show_help: false, input: "BIMBAM", pack: "G0-2" }
+options = { show_help: false, input: "BIMBAM", eval: "G0-2", pack: "C*" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] filename(s)"
@@ -24,8 +26,16 @@ opts = OptionParser.new do |o|
     options[:input] = type
   end
 
-  o.on('-p','--pack EVAL', 'pack type') do |eval|
-    options[:pack] = eval
+  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 are faster') do |eval|
+    options[:eval] = eval
+  end
+
+  o.on('-p','--pack PACK',String, 'pack result') do |pack|
+    options[:pack] = pack
+  end
+
+  o.on('--json ANNO', 'JSON gn-geno-to-gemma annotation file') do |json|
+    options[:json] = json
   end
 
   # o.on('-a','--anno FILEN', 'Annotation file') do |anno|
@@ -57,20 +67,22 @@ if options[:show_help]
   exit 1
 end
 
+PACK=options[:pack]
 # Translation tables to char/int
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
 def convert gs, func
   res = gs.map { | g | func.call(g) }
-  res.pack('C*')
+  res.pack(PACK)
 end
 
 meta = {
   "type" => "gemma-geno",
   "version" => 1.0,
+  "eval" => options[:eval].to_s,
   "key-format" => "string",
-  "rec-format" => "C*",
+  "rec-format" => PACK,
   "geno" => {}
 }
 
@@ -93,14 +105,15 @@ ARGV.each_with_index do |fn|
       cols = rest.size
     end
     begin
-      case options[:pack]
-      when  'G0-1'
-        db[marker] = convert(rest, lambda { |g| G0_1[g] })
-      when  'G0-2'
-        db[marker] = convert(rest, lambda { |g| G0_2[g] })
-      else
-        db[marker] = convert(rest, lambda { |g| eval "#{eval(options[:pack])}[g]" })
-      end
+      db[marker] =
+        case options[:pack]
+        when  'G0-1'
+          convert(rest, lambda { |g| G0_1[g] })
+        when  'G0-2'
+          convert(rest, lambda { |g| G0_2[g] })
+        else
+          convert(rest, lambda { |g| eval "#{eval(options[:eval])}[g]" })
+        end
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
     end
