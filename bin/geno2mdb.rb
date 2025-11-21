@@ -15,7 +15,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-options = { show_help: false, input: "BIMBAM", pack: "G0_2" }
+options = { show_help: false, input: "BIMBAM", pack: "G0-2" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] filename(s)"
@@ -93,7 +93,14 @@ ARGV.each_with_index do |fn|
       cols = rest.size
     end
     begin
-      db[marker] = convert(rest, lambda { |g| G0_2[g] })
+      case options[:pack]
+      when  'G0-1'
+        db[marker] = convert(rest, lambda { |g| G0_1[g] })
+      when  'G0-2'
+        db[marker] = convert(rest, lambda { |g| G0_2[g] })
+      else
+        db[marker] = convert(rest, lambda { |g| eval "#{eval(options[:pack])}[g]" })
+      end
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
     end
