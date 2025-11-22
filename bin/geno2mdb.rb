@@ -26,12 +26,29 @@ opts = OptionParser.new do |o|
     options[:input] = type
   end
 
-  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 are faster (default is G0-2)') do |eval|
+  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 (default is G0-2)
+                                     Example: --eval {"0"=>0,"1"=>1,"2"=>2,"NA"=>255} or --eval G0-1
+       ') do |eval|
     options[:eval] = eval
   end
 
-  o.on('-p','--pack PACK',String, 'pack result') do |pack|
+  o.on('-g','--geval EVAL',String, 'generic eval conversion without assuming it is a hash ([g] is not attached).
+                                     Example: --geval {"0"=>0,"1"=>1,"2"=>2,"NA"=>255}[g]
+       ') do |eval|
+    options[:geval] = eval
+  end
+
+  o.on('-p','--pack PACK',String, 'pack result
+                                     Example: "C*"
+       ') do |pack|
     options[:pack] = pack
+  end
+
+  o.on('-p','--gpack PACK',String, 'generic pack result using your own method
+                                     Example: --gpack \'l.pack("C*")\'
+         --gpack "l.each_slice(4).map { |slice| slice.map.with_index.sum {|val,i| val << (i*2) } }.pack(\"C*\")"
+       ') do |pack|
+    options[:gpack] = pack
   end
 
   o.on('--geno-json JSON', 'JSON gn-geno-to-gemma annotation file') do |json|
@@ -67,24 +84,40 @@ if options[:show_help]
   exit 1
 end
 
-PACK=options[:pack]
+p options
+
+PACK = if options[:gpack]
+         options[:gpack]
+       else
+         "l.pack(\"#{options[:pack]}\")"
+       end
+P_lambda = eval "lambda { |l| #{PACK} }"
+
 # Translation tables to char/int
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
-G_lambda = eval "lambda { |g| #{options[:eval]} }"
+EVAL = if options[:geval]
+         options[:geval]
+       else
+         options[:eval]+"[g]"
+       end
+G_lambda = eval "lambda { |g| #{EVAL} }"
 
 def convert gs, func
   res = gs.map { | g | func.call(g) }
-  res.pack(PACK)
+  # original res.pack(PACK)
+  P_lambda.call(res)
 end
 
 json = JSON.parse(File.read(options[:geno_json]))
+raise "We need a gemma-geno JSON!" if not json["type"]=="gn-geno-to-gemma"
+NUMSAMPLES = json["numsamples"].to_i
 
 meta = {
   "type" => "gemma-geno",
   "version" => 1.0,
-  "eval" => options[:eval].to_s,
+  "eval" => EVAL.to_s,
   "key-format" => "string",
   "rec-format" => PACK,
   "geno" => json
@@ -109,10 +142,11 @@ ARGV.each_with_index do |fn|
       raise "Varying amount of genotypes at line #{count}: #{line}" if cols != rest.size
     else
       cols = rest.size
+      raise "Wrong number of samples in JSON #{NUMSAMPLES} for #{cols}" if cols != NUMSAMPLES
     end
     begin
       db[marker] =
-        case options[:eval]
+        case EVAL
         when  "G0-1"
           convert(rest, lambda { |g| G0_1[g] })
         when  "G0-2"
