@@ -72,6 +72,8 @@ PACK=options[:pack]
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
+G_lambda = eval "lambda { |g| #{options[:eval]} }"
+
 def convert gs, func
   res = gs.map { | g | func.call(g) }
   res.pack(PACK)
@@ -87,6 +89,8 @@ meta = {
   "rec-format" => PACK,
   "geno" => json
 }
+
+
 
 cols = -1
 ARGV.each_with_index do |fn|
@@ -114,7 +118,7 @@ ARGV.each_with_index do |fn|
         when  "G0-2"
           convert(rest, lambda { |g| G0_2[g] })
         else
-          convert(rest, lambda { |g| eval "#{eval(options[:eval])}[g]" })
+          convert(rest, G_lambda)
         end
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
