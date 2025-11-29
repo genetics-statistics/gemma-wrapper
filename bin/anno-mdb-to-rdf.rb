@@ -86,7 +86,7 @@ db.each do |key,value|
   pos = pos.to_f/1_000_000
   id = rdf_normalize(value)
   print """gn:#{id} a gnt:locus;
-      rdfs:label \"Marker #{value}\";
+      rdfs:label \"#{value}\";
       gnt:chr \"#{chr}\" ;
       gnt:pos #{pos} .
 """
