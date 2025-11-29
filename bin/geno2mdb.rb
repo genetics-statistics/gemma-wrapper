@@ -17,7 +17,17 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-options = { show_help: false, input: "BIMBAM", eval: "G0-2", pack: "C*" }
+# Translation tables to char/int
+Gf = "g.to_f"
+G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
+G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
+
+Gfmsg =   { text: "Gf=transform to float", geval: "g.to_f", pack: 'f*' }
+G0_1msg = { text: "G0_1=transform 0,0.5,1,NA to byte values 0,1,2,255", eval: G0_1, pack: 'C*' }
+G0_2msg = { text: "G0_2=Transform 0,1,2,NA to byte values 0,1,2,255", eval: G0_2, pack: 'C*' }
+
+
+options = { show_help: false, input: "BIMBAM", geval: "Gf", pack: Gfmsg[:pack] }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] filename(s)"
@@ -26,10 +36,20 @@ opts = OptionParser.new do |o|
     options[:input] = type
   end
 
-  o.on('-e','--eval EVAL',String, 'eval conversion - note the short cut methods G0-1,G0-2 (default is G0-2)
-                                     Example: --eval {"0"=>0,"1"=>1,"2"=>2,"NA"=>255} or --eval G0-1
-       ') do |eval|
-    options[:eval] = eval
+  o.on('-e','--eval EVAL',String, "eval conversion - note the short cut methods G0_1,G0_2 (default is G0_2)
+                                     Example: --eval {\"0\"=>0,\"1\"=>1,\"2\"=>2,\"NA\"=>255} or --eval G0_1
+
+#{Gfmsg}
+#{G0_1msg}
+#{G0_2msg}
+       ") do |eval|
+      case eval
+      when 'Gf'
+        options[:geval] = eval
+        options[:pack] = Gfmsg[:pack]
+      else
+        options[:eval] = eval
+      end
   end
 
   o.on('-g','--geval EVAL',String, 'generic eval conversion without assuming it is a hash ([g] is not attached).
@@ -84,18 +104,12 @@ if options[:show_help]
   exit 1
 end
 
-p options
-
 PACK = if options[:gpack]
          options[:gpack]
        else
          "l.pack(\"#{options[:pack]}\")"
        end
 P_lambda = eval "lambda { |l| #{PACK} }"
-
-# Translation tables to char/int
-G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
-G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
 EVAL = if options[:geval]
          options[:geval]
@@ -110,9 +124,14 @@ def convert gs, func
   P_lambda.call(res)
 end
 
-json = JSON.parse(File.read(options[:geno_json]))
-raise "We need a gemma-geno JSON!" if not json["type"]=="gn-geno-to-gemma"
-NUMSAMPLES = json["numsamples"].to_i
+numsamples =
+  if options[:geno_json]
+    json = JSON.parse(File.read(options[:geno_json]))
+    raise "We need a gemma-geno style JSON!" if not json["type"]=="gn-geno-to-gemma"
+    json["numsamples"].to_i
+  else
+    -1
+  end
 
 meta = {
   "type" => "gemma-geno",
@@ -123,8 +142,6 @@ meta = {
   "geno" => json
 }
 
-
-
 cols = -1
 ARGV.each_with_index do |fn|
   $stderr.print "Reading #{fn}\n"
@@ -132,7 +149,7 @@ ARGV.each_with_index do |fn|
   $stderr.print("lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
-  db = env.database(File.basename(mdb), create: true)
+  geno = env.database("geno", create: true)
 
   count = 0
   File.open(fn).each_line do |line|
@@ -142,14 +159,17 @@ ARGV.each_with_index do |fn|
       raise "Varying amount of genotypes at line #{count}: #{line}" if cols != rest.size
     else
       cols = rest.size
-      raise "Wrong number of samples in JSON #{NUMSAMPLES} for #{cols}" if cols != NUMSAMPLES
+      numsamples = cols if numsamples == -1
+      raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
     end
     begin
-      db[marker] =
+      geno[marker.force_encoding("ASCII-8BIT")] =
         case EVAL
-        when  "G0-1"
+        when  "Gf"
+          convert(rest, lambda { |g| g.to_f })
+        when  "G0_1"
           convert(rest, lambda { |g| G0_1[g] })
-        when  "G0-2"
+        when  "G0_2"
           convert(rest, lambda { |g| G0_2[g] })
         else
           convert(rest, G_lambda)
@@ -158,11 +178,15 @@ ARGV.each_with_index do |fn|
       raise "Problem at line #{count}: #{line}"
     end
   end
-  db['meta'] = meta.to_json
+  info = env.database("info", create: true)
+  info['numsamples'] = [numsamples].pack("Q") # uint64
+  info['nummarkers'] = [geno.size].pack("Q")
+  info['meta'] = meta.to_json.to_s
   env.close
+  fn = fn + '.mdb'
+  $stderr.print "Reading #{fn}\n"
+  test_env = LMDB.new(fn, nosubdir: true)
+  test_info = test_env.database('info', :create=>false)
+  meta2 = test_info.get "meta"
+  print meta2,"\n"
 end
-
-raise "Empty set" if cols == -1
-
-# meta["geno"]["cols"] = cols
-print meta.to_json,"\n"
