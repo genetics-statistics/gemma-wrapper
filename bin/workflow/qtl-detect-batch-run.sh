@@ -1,6 +1,7 @@
 #! /bin/env sh
 #
 # Take a list of IDs and fetch SNPs
+#
 
 
 export TMPDIR=./tmp
@@ -8,7 +9,11 @@ export RDF=pan-qtl.rdf
 
 for id in `cat pan-ids-sorted.txt` ; do
     echo Precomputing $0 for $id
+    if [ -e $id.hits.txt ] ; then
+        continue
+    fi
     echo "gnt:traitId $id ."
+
     curl -G http://sparql-test.genenetwork.org/sparql -H "Accept: text/tab-separated-values; charset=utf-8" --data-urlencode query="
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX gn: <http://genenetwork.org/id/>
@@ -37,6 +42,7 @@ FILTER(?lod >= 5.0) .
 ?locus rdfs:label ?marker ;
          gnt:chr ?chr ;
          gnt:pos ?pos .
+FILTER (contains(?marker,\"Marker\") && ?pos > 1000) # FIXME: this is to avoid duplicates
 } ORDER BY DESC(?lod)
 " > $id.hits.txt
 
