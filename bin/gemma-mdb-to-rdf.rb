@@ -195,7 +195,11 @@ ARGV.each do |fn|
         exit 0
       end
 
-      meta = JSON.parse(db['meta'])
+      begin
+        meta = JSON.parse(db['meta'])
+      rescue JSON::ParserError
+        next
+      end
 
       name  = meta['gemma-wrapper']['meta']['name']
       trait = meta['gemma-wrapper']['meta']['trait']
