@@ -204,4 +204,9 @@ ARGV.each_with_index do |fn|
   test_info = test_env.database('info', :create=>false)
   meta2 = test_info.get "meta"
   print meta2,"\n"
+  # 1       rs13476251      174792257
+  geno_tab = test_env.database('geno', :create=>false)
+  marker_tab = test_env.database('marker', :create=>false)
+  key = [1,174792257].pack("cL>")
+  p marker_tab[key] if marker_tab[key]
 end
