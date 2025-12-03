@@ -1,6 +1,9 @@
 #!/usr/bin/env ruby
 #
-# Convert a geno file to lmdb. Example:
+# Convert a geno file to lmdb. The lmdb file contains 3 tables. The genotypes as a list of chars/numbers, the markers
+# as a name with possibly some metadata -- both indexed on a packed chr+pos. And then there is meta in the info table.
+#
+# Example:
 #
 #   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>-1}' --pack 'C*' --geno-json BXD.geno.json
 #
@@ -156,14 +159,15 @@ ARGV.each_with_index do |fn|
     count += 1
     marker,loc1,loc2,*rest = line.split(/[\s,]+/)
     if cols != -1
-      raise "Varying amount of genotypes at line #{count}: #{line}" if cols != rest.size
+      raise "Differing amount of genotypes at line #{count}: #{line}" if cols != rest.size
     else
       cols = rest.size
       numsamples = cols if numsamples == -1
       raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
     end
     begin
-      geno[marker.force_encoding("ASCII-8BIT")] =
+      key = marker.force_encoding("ASCII-8BIT")
+      geno[key] =
         case EVAL
         when  "Gf"
           convert(rest, lambda { |g| g.to_f })
