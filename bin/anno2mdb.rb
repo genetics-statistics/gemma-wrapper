@@ -58,7 +58,8 @@ ARGV.each do |fn|
   $stderr.print("lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
-  db = env.database(File.basename(mdb), create: true)
+  chrpos_tab = env.database("chrpos", create: true)
+  marker_tab = env.database("marker", create: true)
 
   File.open(fn).each_line do |line|
     snp,pos,chr = line.split(/[\s,]+/)
@@ -73,25 +74,12 @@ ARGV.each do |fn|
       else
         chr.to_i
       end
-    key = [chr_c,pos.to_i].pack("cL>")
-    # env.transaction do |child1|
-    db[key] = snp
-    db.put "HEY","HEY"
-    # end
+    pos = pos.to_i
+    chrpos = [chr_c,pos].pack("cL>")
+    chrpos_tab[chrpos] = snp
+    marker_tab[snp] = [chr_c,pos].pack("cL>")
   end
-  p db.size
+  p chrpos_tab.size
   env.close
 
-  fn = fn+".mdb"
-  $stderr.print "Reading #{fn}\n"
-  snp_env = LMDB.new(fn, nosubdir: true)
-  snp_db = snp_env.database(File.basename(fn), :create=>false)
-  chr_c = "1".to_i
-  pos = 3231204
-  key = [chr_c,pos.to_i].pack("cL>")
-  marker_name = snp_db[key]
-  p marker_name
-  key = "HEY"
-  marker_name = snp_db.get key
-  p marker_name
 end

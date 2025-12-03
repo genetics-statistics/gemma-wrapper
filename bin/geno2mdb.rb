@@ -74,14 +74,15 @@ opts = OptionParser.new do |o|
     options[:gpack] = pack
   end
 
+  o.on('--anno FILEN', 'mdb annotation file') do |anno|
+    options[:anno] = anno
+    raise "Annotation input file #{anno} does not exist" if !File.exist?(anno)
+  end
+
   o.on('--geno-json JSON', 'JSON gn-geno-to-gemma annotation file') do |json|
     options[:geno_json] = json
   end
 
-  # o.on('-a','--anno FILEN', 'Annotation file') do |anno|
-  #   options[:anno] = anno
-  #   raise "Annotation input file #{anno} does not exist" if !File.exist?(anno)
-  # end
 
   # o.on("-v", "--verbose", "Run verbosely") do |v|
   #   options[:verbose] = true
@@ -140,10 +141,15 @@ meta = {
   "type" => "gemma-geno",
   "version" => 1.0,
   "eval" => EVAL.to_s,
-  "key-format" => "string",
+  "key-format" => "cL>",
   "rec-format" => PACK,
   "geno" => json
 }
+
+annofn = options[:anno]
+$stderr.print "Reading #{annofn}\n"
+marker_env = LMDB.new(annofn, nosubdir: true)
+anno_marker_tab = marker_env.database("marker", :create=>false)
 
 cols = -1
 ARGV.each_with_index do |fn|
@@ -153,11 +159,14 @@ ARGV.each_with_index do |fn|
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
   geno = env.database("geno", create: true)
+  geno_marker = env.database("marker", create: true)
 
   count = 0
   File.open(fn).each_line do |line|
     count += 1
     marker,loc1,loc2,*rest = line.split(/[\s,]+/)
+    snpchr = anno_marker_tab[marker]
+    raise "Unknown marker #{marker} in #{annofn}!" if !snpchr
     if cols != -1
       raise "Differing amount of genotypes at line #{count}: #{line}" if cols != rest.size
     else
@@ -166,7 +175,9 @@ ARGV.each_with_index do |fn|
       raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
     end
     begin
-      key = marker.force_encoding("ASCII-8BIT")
+      # key = marker.force_encoding("ASCII-8BIT")
+      key = snpchr
+      geno_marker[key] = marker
       geno[key] =
         case EVAL
         when  "Gf"
