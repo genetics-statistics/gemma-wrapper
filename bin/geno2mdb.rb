@@ -83,6 +83,9 @@ opts = OptionParser.new do |o|
     options[:geno_json] = json
   end
 
+  o.on_tail('--order', 'Force rewrite of ordere key-value store') do
+    options[:order] = true
+  end
 
   # o.on("-v", "--verbose", "Run verbosely") do |v|
   #   options[:verbose] = true
@@ -204,8 +207,27 @@ ARGV.each_with_index do |fn|
   info['meta'] = meta.to_json.to_s
   $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
-  env.close
+  fn_o = fn + ".order.mdb"
   fn = fn + '.mdb'
+  if options[:order] # rewrite ordered store
+    $stderr.print "Reordering store #{fn}\n"
+    o_env = LMDB.new(fn_o, nosubdir: true, mapsize: 10**9)
+    o_geno = o_env.database('geno', :create=>true)
+    o_geno_marker = o_env.database('marker', :create=>true)
+    o_info = o_env.database('info', :create=>true)
+    geno.each do | k,v |
+      o_geno[k] = v
+    end
+    geno_marker.each do | k, v |
+      o_geno_marker[k] = v
+    end
+    info.each do | k, v |
+      o_info[k] = v
+    end
+    o_env.close
+  end
+  env.close
+  File.rename(fn_o,fn)
   $stderr.print "Reading #{fn}\n"
   test_env = LMDB.new(fn, nosubdir: true)
   test_info = test_env.database('info', :create=>false)
