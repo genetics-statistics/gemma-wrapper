@@ -20,7 +20,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-CHRPOS_PACK="S>L>S>" # L is uint32, S is uint16 - total 64bit
+CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
 Gf = "g.to_f"
@@ -168,8 +168,8 @@ ARGV.each_with_index do |fn|
                  mapsize: 10**9,
                  maxdbs: 10)
   # maindb      = env.database
-  geno        = env.database("geno", create: true, integerkey: true)
-  geno_marker = env.database("marker", create: true, integerkey: true)
+  geno        = env.database("geno", create: true)
+  geno_marker = env.database("marker", create: true)
 
   count = 0
   File.open(fn).each_line do |line|
@@ -223,8 +223,8 @@ ARGV.each_with_index do |fn|
   if options[:order] # rewrite ordered store
     $stderr.print "Reordering store #{fn}\n"
     o_env = LMDB.new(fn_o, nosubdir: true, mapsize: 10**9)
-    o_geno = o_env.database('geno', create: true, integerkey: true)
-    o_geno_marker = o_env.database('marker', create: true, integerkey: true)
+    o_geno = o_env.database('geno', create: true)
+    o_geno_marker = o_env.database('marker', create: true)
     o_info = o_env.database('info', create: true)
     geno.each do | k,v |
       o_geno[k] = v

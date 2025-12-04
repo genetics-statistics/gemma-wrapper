@@ -15,7 +15,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-CHRPOS_PACK="S>L>S>" # L is uint32, S is uint16 - total 64bit
+CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 options = { show_help: false }
 
@@ -54,6 +54,7 @@ X='X'.ord
 Y='Y'.ord
 M='M'.ord
 
+dup_count = 0
 ARGV.each do |fn|
   $stderr.print "Reading #{fn}\n"
   mdb = fn + ".mdb"
@@ -61,14 +62,13 @@ ARGV.each do |fn|
   $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
-  chrpos_tab = env.database("chrpos", create: true, integerkey: true)
+  chrpos_tab = env.database("chrpos", create: true)
   marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
 
   count = 0
   File.open(fn).each_line do |line|
     count += 1
     snp,pos,chr = line.split(/[\s,]+/)
-    location = "#{chr}:#{pos}"
     chr_c =
       if chr == "X"
         X
@@ -84,9 +84,10 @@ ARGV.each do |fn|
     rescue ArgumentError, TypeError
       pos_i = 0 # set anything unknown to position zero
     end
-    chrpos = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
-    chrpos_tab[chrpos] = snp
-    marker_tab[snp] = chrpos
+    chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
+
+    chrpos_tab[chrposdup] = snp
+    marker_tab[snp] = chrposdup
   end
   $stderr.print "#{chrpos_tab.size}/#{count} records written\n"
   env.close
