@@ -20,7 +20,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-CHRPOS_PACK="L>L>"
+CHRPOS_PACK="S>L>S>" # L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
 Gf = "g.to_f"
@@ -168,8 +168,8 @@ ARGV.each_with_index do |fn|
                  mapsize: 10**9,
                  maxdbs: 10)
   # maindb      = env.database
-  geno        = env.database("geno", create: true, dubsort: true)
-  geno_marker = env.database("marker", create: true, dupsort: true)
+  geno        = env.database("geno", create: true, integerkey: true)
+  geno_marker = env.database("marker", create: true, integerkey: true)
 
   count = 0
   File.open(fn).each_line do |line|
@@ -186,25 +186,29 @@ ARGV.each_with_index do |fn|
     end
     begin
       # key = marker.force_encoding("ASCII-8BIT")
-      chr,pos = snpchr.unpack(CHRPOS_PACK)
-      key = [chr,pos].pack(CHRPOS_PACK)
+      chr,pos,num = snpchr.unpack(CHRPOS_PACK)
+      key = [chr,pos,num].pack(CHRPOS_PACK)
       raise "key error" if not key==snpchr
       keys_ordered += 1 if key >= prev_key
-      geno_marker[key] = marker
-      geno[key] =
-        case EVAL
-        when  "Gf"
-          convert(rest, lambda { |g| g.to_f })
-        when  "G0_1"
-          convert(rest, lambda { |g| G0_1[g] })
-        when  "G0_2"
-          convert(rest, lambda { |g| G0_2[g] })
-        else
-          convert(rest, G_lambda)
-        end
+      env.transaction() do
+        geno_marker[key] = marker
+        fields =
+          case EVAL
+          when  "Gf"
+            convert(rest, lambda { |g| g.to_f })
+          when  "G0_1"
+            convert(rest, lambda { |g| G0_1[g] })
+          when  "G0_2"
+            convert(rest, lambda { |g| G0_2[g] })
+          else
+            convert(rest, G_lambda)
+          end
+        geno[key] = fields
+      end
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
     end
+
     prev_key = key
   end
   info = env.database("info", create: true)
@@ -219,8 +223,8 @@ ARGV.each_with_index do |fn|
   if options[:order] # rewrite ordered store
     $stderr.print "Reordering store #{fn}\n"
     o_env = LMDB.new(fn_o, nosubdir: true, mapsize: 10**9)
-    o_geno = o_env.database('geno', create: true)
-    o_geno_marker = o_env.database('marker', create: true)
+    o_geno = o_env.database('geno', create: true, integerkey: true)
+    o_geno_marker = o_env.database('marker', create: true, integerkey: true)
     o_info = o_env.database('info', create: true)
     geno.each do | k,v |
       o_geno[k] = v
@@ -243,6 +247,6 @@ ARGV.each_with_index do |fn|
   # 1       rs13476251      174792257
   geno_tab = test_env.database('geno', :create=>false)
   marker_tab = test_env.database('marker', :create=>false)
-  key = [1,174792257].pack(CHRPOS_PACK)
+  key = [1,174792257,0].pack(CHRPOS_PACK)
   p marker_tab[key] if marker_tab[key]
 end
