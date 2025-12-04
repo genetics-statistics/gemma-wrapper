@@ -151,11 +151,14 @@ $stderr.print "Reading #{annofn}\n"
 marker_env = LMDB.new(annofn, nosubdir: true)
 anno_marker_tab = marker_env.database("marker", :create=>false)
 
+keys_ordered = 0
+prev_key = ""
 cols = -1
 ARGV.each_with_index do |fn|
   $stderr.print "Reading #{fn}\n"
   mdb = fn + ".mdb"
-  $stderr.print("lmdb #{mdb}...\n")
+  File.delete(mdb) if File.exist?(mdb)
+  $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
   geno = env.database("geno", create: true)
@@ -177,6 +180,7 @@ ARGV.each_with_index do |fn|
     begin
       # key = marker.force_encoding("ASCII-8BIT")
       key = snpchr
+      keys_ordered += 1 if key >= prev_key
       geno_marker[key] = marker
       geno[key] =
         case EVAL
@@ -192,11 +196,14 @@ ARGV.each_with_index do |fn|
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
     end
+    prev_key = key
   end
   info = env.database("info", create: true)
   info['numsamples'] = [numsamples].pack("Q") # uint64
   info['nummarkers'] = [geno.size].pack("Q")
   info['meta'] = meta.to_json.to_s
+  $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
+  $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
   env.close
   fn = fn + '.mdb'
   $stderr.print "Reading #{fn}\n"

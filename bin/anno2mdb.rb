@@ -55,13 +55,16 @@ M='M'.ord
 ARGV.each do |fn|
   $stderr.print "Reading #{fn}\n"
   mdb = fn + ".mdb"
-  $stderr.print("lmdb #{mdb}...\n")
+  File.delete(mdb) if File.exist?(mdb)
+  $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
   chrpos_tab = env.database("chrpos", create: true)
   marker_tab = env.database("marker", create: true)
 
+  count = 0
   File.open(fn).each_line do |line|
+    count += 1
     snp,pos,chr = line.split(/[\s,]+/)
     location = "#{chr}:#{pos}"
     chr_c =
@@ -74,12 +77,16 @@ ARGV.each do |fn|
       else
         chr.to_i
       end
-    pos = pos.to_i
-    chrpos = [chr_c,pos].pack("cL>")
+    begin
+      pos_i = Integer(pos)
+    rescue ArgumentError, TypeError
+      pos_i = -count # unique negative number
+    end
+    chrpos = [chr_c,pos_i].pack("cl>")
     chrpos_tab[chrpos] = snp
-    marker_tab[snp] = [chr_c,pos].pack("cL>")
+    marker_tab[snp] = chrpos
   end
-  p chrpos_tab.size
+  $stderr.print "#{chrpos_tab.size}/#{count} records written\n"
   env.close
 
 end
