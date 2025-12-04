@@ -15,6 +15,8 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
+CHRPOS_PACK="L>L>"
+
 options = { show_help: false }
 
 opts = OptionParser.new do |o|
@@ -59,8 +61,8 @@ ARGV.each do |fn|
   $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
-  chrpos_tab = env.database("chrpos", create: true)
-  marker_tab = env.database("marker", create: true)
+  chrpos_tab = env.database("chrpos", create: true, integerkey: true, dupsort: true)
+  marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
 
   count = 0
   File.open(fn).each_line do |line|
@@ -80,9 +82,9 @@ ARGV.each do |fn|
     begin
       pos_i = Integer(pos)
     rescue ArgumentError, TypeError
-      pos_i = -count # unique negative number
+      pos_i = 0 # set anything unknown to position zero
     end
-    chrpos = [chr_c,pos_i].pack("cl>")
+    chrpos = [chr_c,pos_i].pack(CHRPOS_PACK)
     chrpos_tab[chrpos] = snp
     marker_tab[snp] = chrpos
   end

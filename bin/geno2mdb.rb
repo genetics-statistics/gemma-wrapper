@@ -20,6 +20,8 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
+CHRPOS_PACK="L>L>"
+
 # Translation tables to char/int
 Gf = "g.to_f"
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
@@ -144,7 +146,7 @@ meta = {
   "type" => "gemma-geno",
   "version" => 1.0,
   "eval" => EVAL.to_s,
-  "key-format" => "cL>",
+  "key-format" => CHRPOS_PACK,
   "rec-format" => PACK,
   "geno" => json
 }
@@ -152,7 +154,7 @@ meta = {
 annofn = options[:anno]
 $stderr.print "Reading #{annofn}\n"
 marker_env = LMDB.new(annofn, nosubdir: true)
-anno_marker_tab = marker_env.database("marker", :create=>false)
+anno_marker_tab = marker_env.database("marker", create: false)
 
 keys_ordered = 0
 prev_key = ""
@@ -162,10 +164,12 @@ ARGV.each_with_index do |fn|
   mdb = fn + ".mdb"
   File.delete(mdb) if File.exist?(mdb)
   $stderr.print("Writing lmdb #{mdb}...\n")
-  env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
-  maindb = env.database
-  geno = env.database("geno", create: true)
-  geno_marker = env.database("marker", create: true)
+  env = LMDB.new(mdb, nosubdir: true,
+                 mapsize: 10**9,
+                 maxdbs: 10)
+  # maindb      = env.database
+  geno        = env.database("geno", create: true)
+  geno_marker = env.database("marker", create: true, dupsort: true)
 
   count = 0
   File.open(fn).each_line do |line|
@@ -182,7 +186,9 @@ ARGV.each_with_index do |fn|
     end
     begin
       # key = marker.force_encoding("ASCII-8BIT")
-      key = snpchr
+      chr,pos = snpchr.unpack(CHRPOS_PACK)
+      key = [chr,pos].pack(CHRPOS_PACK)
+      raise "key error" if not key==snpchr
       keys_ordered += 1 if key >= prev_key
       geno_marker[key] = marker
       geno[key] =
@@ -209,12 +215,13 @@ ARGV.each_with_index do |fn|
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
   fn_o = fn + ".order.mdb"
   fn = fn + '.mdb'
+  File.delete(fn_o) if File.exist?(fn_o)
   if options[:order] # rewrite ordered store
     $stderr.print "Reordering store #{fn}\n"
     o_env = LMDB.new(fn_o, nosubdir: true, mapsize: 10**9)
-    o_geno = o_env.database('geno', :create=>true)
-    o_geno_marker = o_env.database('marker', :create=>true)
-    o_info = o_env.database('info', :create=>true)
+    o_geno = o_env.database('geno', create: true)
+    o_geno_marker = o_env.database('marker', create: true)
+    o_info = o_env.database('info', create: true)
     geno.each do | k,v |
       o_geno[k] = v
     end
@@ -236,6 +243,6 @@ ARGV.each_with_index do |fn|
   # 1       rs13476251      174792257
   geno_tab = test_env.database('geno', :create=>false)
   marker_tab = test_env.database('marker', :create=>false)
-  key = [1,174792257].pack("cL>")
+  key = [1,174792257].pack(CHRPOS_PACK)
   p marker_tab[key] if marker_tab[key]
 end
