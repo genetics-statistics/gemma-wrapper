@@ -168,7 +168,7 @@ ARGV.each_with_index do |fn|
                  mapsize: 10**9,
                  maxdbs: 10)
   # maindb      = env.database
-  geno        = env.database("geno", create: true)
+  geno        = env.database("geno", create: true, dubsort: true)
   geno_marker = env.database("marker", create: true, dupsort: true)
 
   count = 0
