@@ -178,11 +178,12 @@ ARGV.each_with_index do |fn|
   File.delete(mdb) if File.exist?(mdb)
   $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true,
-                 mapsize: 10**9,
+                 mapsize: 10**12,
                  maxdbs: 10)
   # maindb      = env.database
   geno        = env.database("geno", create: true)
   geno_marker = env.database("marker", create: true)
+  maindb = env.database
 
   count = 0
   File.open(fn).each_line do |line|
