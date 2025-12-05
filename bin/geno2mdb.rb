@@ -24,7 +24,7 @@ CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
 Gf = "g.to_f"
-Gb = "(g=='NA' ? 255.to_c : (g.to_f*127.0).to_c)"
+Gb = "(g=='NA' ? 255 : (g.to_f*127.0)).to_i"
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
@@ -50,23 +50,25 @@ opts = OptionParser.new do |o|
 #{Gbmsg}
 #{G0_1msg}
 #{G0_2msg}
-       ") do |eval|
-      case eval
-      when 'Gf'
-        options[:geval] = Gf
-        options[:pack] = Gfmsg[:pack]
-      when 'Gb'
-        options[:geval] = Gb
-        options[:pack] = Gbmsg[:pack]
-      else
-        options[:eval] = eval
-      end
+    ") do |eval|
+    options[:format] = eval
+    case eval
+    when 'Gf'
+      options[:geval] = Gf
+      options[:pack] = Gfmsg[:pack]
+    when 'Gb'
+      options[:geval] = Gb
+      options[:pack] = Gbmsg[:pack]
+    else
+      options[:eval] = eval
+    end
   end
 
   o.on('-g','--geval EVAL',String, 'generic eval conversion without assuming it is a hash ([g] is not attached).
                                      Example: --geval {"0"=>0,"1"=>1,"2"=>2,"NA"=>255}[g]
-       ') do |eval|
-    options[:geval] = eval
+       ') do |geval|
+    options[:format] = geval
+    options[:geval] = geval
   end
 
   o.on('-p','--pack PACK',String, 'pack result
@@ -154,6 +156,7 @@ numsamples =
 
 meta = {
   "type" => "gemma-geno",
+  "format" => options[:format],
   "version" => 1.0,
   "eval" => EVAL.to_s,
   "key-format" => CHRPOS_PACK,
@@ -215,7 +218,7 @@ ARGV.each_with_index do |fn|
           else
             convert(rest, G_lambda)
           end
-        geno[key] = fields
+        geno[key] = fields.to_s
       end
     rescue TypeError
       raise "Problem at line #{count}: #{line}"
@@ -227,6 +230,8 @@ ARGV.each_with_index do |fn|
   info['numsamples'] = [numsamples].pack("Q") # uint64
   info['nummarkers'] = [geno.size].pack("Q")
   info['meta'] = meta.to_json.to_s
+  info['format'] = options[:format].to_s
+  info['options'] = options.to_s
   $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
   fn_o = fn + ".order.mdb"
