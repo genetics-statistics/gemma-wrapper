@@ -24,12 +24,14 @@ CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
 Gf = "g.to_f"
+Gb = "(g=='NA' ? 255.to_c : (g.to_f*127.0).to_c)"
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
 
-Gfmsg =   { text: "Gf=transform to float", geval: "g.to_f", pack: 'f*' }
-G0_1msg = { text: "G0_1=transform 0,0.5,1,NA to byte values 0,1,2,255", eval: G0_1, pack: 'C*' }
-G0_2msg = { text: "G0_2=Transform 0,1,2,NA to byte values 0,1,2,255", eval: G0_2, pack: 'C*' }
+Gfmsg =   { type: "Gf", text: "transform to float", geval: Gf, pack: 'f*' }
+Gbmsg =   { type: "Gb", text: "transform to byte (255 is NA)", geval: Gb, pack: 'C*' }
+G0_1msg = { type: "G0_1", text: "transform 0,0.5,1,NA to byte values 0,1,2,255", eval: G0_1, pack: 'C*' }
+G0_2msg = { type: "G0_2", text: "Transform 0,1,2,NA to byte values 0,1,2,255", eval: G0_2, pack: 'C*' }
 
 
 options = { show_help: false, input: "BIMBAM", geval: "Gf", pack: Gfmsg[:pack] }
@@ -45,13 +47,17 @@ opts = OptionParser.new do |o|
                                      Example: --eval {\"0\"=>0,\"1\"=>1,\"2\"=>2,\"NA\"=>255} or --eval G0_1
 
 #{Gfmsg}
+#{Gbmsg}
 #{G0_1msg}
 #{G0_2msg}
        ") do |eval|
       case eval
       when 'Gf'
-        options[:geval] = eval
+        options[:geval] = Gf
         options[:pack] = Gfmsg[:pack]
+      when 'Gb'
+        options[:geval] = Gb
+        options[:pack] = Gbmsg[:pack]
       else
         options[:eval] = eval
       end
@@ -118,6 +124,7 @@ PACK = if options[:gpack]
        else
          "l.pack(\"#{options[:pack]}\")"
        end
+$stderr.print "P_lambda = lambda { |l| #{PACK} }\n"
 P_lambda = eval "lambda { |l| #{PACK} }"
 
 EVAL = if options[:geval]
@@ -125,10 +132,13 @@ EVAL = if options[:geval]
        else
          options[:eval]+"[g]"
        end
+# G_lambda = eval "lambda { |g| p [EVAL, g, #{EVAL}] ; #{EVAL} }"
+$stderr.print "G_lambda = lambda { |g| #{EVAL} }\n"
 G_lambda = eval "lambda { |g| #{EVAL} }"
 
-def convert gs, func
-  res = gs.map { | g | func.call(g) }
+def convert gs, g_func
+  res = gs.map { | g | g_func.call(g) }
+  # p res
   # original res.pack(PACK)
   P_lambda.call(res)
 end
@@ -192,10 +202,12 @@ ARGV.each_with_index do |fn|
       keys_ordered += 1 if key >= prev_key
       env.transaction() do
         geno_marker[key] = marker
-        fields =
+        fields = # Convert fields to array of values
           case EVAL
           when  "Gf"
             convert(rest, lambda { |g| g.to_f })
+          when  "Gb"
+            convert(rest, G_lambda)
           when  "G0_1"
             convert(rest, lambda { |g| G0_1[g] })
           when  "G0_2"
@@ -239,7 +251,7 @@ ARGV.each_with_index do |fn|
   end
   env.close
   File.rename(fn_o,fn)
-  $stderr.print "Reading #{fn}\n"
+  $stderr.print "Testing #{fn}\n"
   test_env = LMDB.new(fn, nosubdir: true)
   test_info = test_env.database('info', :create=>false)
   meta2 = test_info.get "meta"
