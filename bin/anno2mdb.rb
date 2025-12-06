@@ -62,14 +62,13 @@ ARGV.each do |fn|
   $stderr.print("Writing lmdb #{mdb}...\n")
   env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
   maindb = env.database
-  chrpos_tab = env.database("chrpos", create: true)
+  # chrpos_tab = env.database("chrpos", create: true)
   marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
 
   count = 0
-  env.transaction do |txn|
     File.open(fn).each_line do |line|
       count += 1
-      snp,pos,chr = line.split(/[\s,]+/)
+      name,pos,chr = line.split(/[\s,]+/)
       chr_c =
         if chr == "X"
           X
@@ -85,18 +84,16 @@ ARGV.each do |fn|
       rescue ArgumentError, TypeError
         pos_i = 0 # set anything unknown to position zero
       end
-      chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
+      env.transaction do
+        chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
 
-      chrpos_tab[chrposdup] = snp
-      marker_tab[snp] = chrposdup
-
-      if count % 10_000 == 0
-        $stderr.print "."
-        txn.commit
+        # chrpos_tab[chrposdup] = name
+        marker_tab[name] = chrposdup
       end
-    end
+      print "." if count % 10_000 == 0
+      
   end
-  $stderr.print "\n#{chrpos_tab.size}/#{count} records written\n"
+  $stderr.print "\n#{marker_tab.size}/#{count} records written\n"
   env.close
 
 end
