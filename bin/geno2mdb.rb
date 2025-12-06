@@ -167,8 +167,11 @@ meta = {
 annofn = options[:anno]
 $stderr.print "Reading #{annofn}\n"
 marker_env = LMDB.new(annofn, nosubdir: true)
-anno_marker_tab = marker_env.database("marker", create: false)
-
+begin
+  anno_marker_tab = marker_env.database("marker", create: false)
+rescue
+  raise "Problem reading annotation file #{annofn}!"
+end
 keys_ordered = 0
 prev_key = ""
 cols = -1

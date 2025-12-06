@@ -66,30 +66,37 @@ ARGV.each do |fn|
   marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
 
   count = 0
-  File.open(fn).each_line do |line|
-    count += 1
-    snp,pos,chr = line.split(/[\s,]+/)
-    chr_c =
-      if chr == "X"
-        X
-      elsif chr == "Y"
-        Y
-      elsif chr == "M"
-        M
-      else
-        chr.to_i
+  env.transaction do |txn|
+    File.open(fn).each_line do |line|
+      count += 1
+      snp,pos,chr = line.split(/[\s,]+/)
+      chr_c =
+        if chr == "X"
+          X
+        elsif chr == "Y"
+          Y
+        elsif chr == "M"
+          M
+        else
+          chr.to_i
+        end
+      begin
+        pos_i = Integer(pos)
+      rescue ArgumentError, TypeError
+        pos_i = 0 # set anything unknown to position zero
       end
-    begin
-      pos_i = Integer(pos)
-    rescue ArgumentError, TypeError
-      pos_i = 0 # set anything unknown to position zero
-    end
-    chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
+      chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
 
-    chrpos_tab[chrposdup] = snp
-    marker_tab[snp] = chrposdup
+      chrpos_tab[chrposdup] = snp
+      marker_tab[snp] = chrposdup
+
+      if count % 10_000 == 0
+        $stderr.print "."
+        txn.commit
+      end
+    end
   end
-  $stderr.print "#{chrpos_tab.size}/#{count} records written\n"
+  $stderr.print "\n#{chrpos_tab.size}/#{count} records written\n"
   env.close
 
 end
