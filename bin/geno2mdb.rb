@@ -23,8 +23,8 @@
 #
 # Example of doing a G0_2:
 #
-#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>255}' --pack 'C*' --geno-json BXD.geno.json
-#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval G0_2 --geno-json BXD.geno.json
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>255}' --pack 'C*' --anno snps.txt.mdb --geno-json BXD.geno.json
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval G0_2 --anno snps.txt.mdb --geno-json BXD.geno.json
 #
 # The geno-json is optional and basically adds metadata to the DB.
 #
@@ -169,8 +169,16 @@ $stderr.print "G_lambda = lambda { |g| #{EVAL} }\n"
 def convert gs, g_func
   res = gs.map { | g | g_func.call(g) }
   # p res
+  missing =
+    if res[0].is_a?(Float)
+      res.count{ |g| g.nan? }
+    else
+      res.count(255) # byte values use 255 for missing data
+    end
+  # p [:missing,missing]
+  # p res
   # original res.pack(PACK)
-  P_lambda.call(res)
+  return P_lambda.call(res), missing
 end
 
 numsamples =
@@ -216,8 +224,10 @@ ARGV.each_with_index do |fn|
   geno        = env.database("geno", create: true)
   geno_marker = env.database("marker", create: true)
   maindb = env.database
+  p options
 
   count = 0
+  total_missing = 0
   File.open(fn).each_line.each_slice(BATCH_SIZE) do |batch|
     print "."
     env.transaction() do
@@ -240,7 +250,7 @@ ARGV.each_with_index do |fn|
           raise "key error" if not key==snpchr
           keys_ordered += 1 if key >= prev_key
           geno_marker[key] = marker
-          fields = # Convert fields to array of values
+          fields,missing = # Convert fields to array of values
             case EVAL
             when  "Gf"
               convert(rest, lambda { |g| to_float_or_nan(g) })
@@ -256,6 +266,8 @@ ARGV.each_with_index do |fn|
           # p fields
           geno[key] = fields
           prev_key = key
+          # track missing data
+          total_missing += missing
         rescue TypeError
           raise "Problem at line #{count}: #{line}"
         end
@@ -270,6 +282,7 @@ ARGV.each_with_index do |fn|
   info['options'] = options.to_s
   $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
+  $stderr.print "We have #{total_missing} missing values #{(100.0*total_missing/(count*cols)).round(0)}%!\n"
   fn_o = fn + ".order.mdb"
   fn = fn + '.mdb'
   File.delete(fn_o) if File.exist?(fn_o)
