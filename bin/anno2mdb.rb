@@ -1,8 +1,13 @@
 #!/usr/bin/env ruby
 #
-# Convert a (snp) annotation file to lmdb - ends up being larger, but maybe faster
+# Convert a (snp) annotation file to lmdb - ends up being larger, but
+# maybe faster.  The key is stored as a packed "S>L>L>" for
+# [chr,pos,line] where chr is mapped to a number 0..20 and maps X,Y,M
+# to its ASCII values. The data is simply the marker name as a
+# varstring.
 #
-# If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
+# If you get a compatibility error in guix you may need an older
+# Ruby. Otherwise you can do:
 #
 #   env GEM_PATH=tmp/ruby GEM_HOME=tmp/ruby gem install lmdb
 #   env GEM_PATH=tmp/ruby ruby -e "require 'lmdb'"
@@ -15,18 +20,13 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-BATCH_SIZE=10_000
+BATCH_SIZE=10_000 # increasing does not really speed things up
 CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 options = { show_help: false }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] filename(s)"
-
-  # o.on('-a','--anno FILEN', 'Annotation file') do |anno|
-  #   options[:anno] = anno
-  #   raise "Annotation input file #{anno} does not exist" if !File.exist?(anno)
-  # end
 
   # o.on("-v", "--verbose", "Run verbosely") do |v|
   #   options[:verbose] = true
@@ -57,10 +57,10 @@ M='M'.ord
 
 dup_count = 0
 ARGV.each do |fn|
-  $stderr.print "Reading #{fn}"
+  $stderr.print "Reading #{fn}..."
   mdb = fn + ".mdb"
   File.delete(mdb) if File.exist?(mdb)
-  $stderr.print("Writing lmdb #{mdb}...\n")
+  $stderr.print("Writing lmdb #{mdb}...")
   env = LMDB.new(mdb, nosubdir: true, nosync: true, mapsize: 10**9)
   maindb = env.database
   # chrpos_tab = env.database("chrpos", create: true)
@@ -96,5 +96,4 @@ ARGV.each do |fn|
   end
   $stderr.print "\n#{marker_tab.size}/#{count} records written\n"
   env.close
-
 end
