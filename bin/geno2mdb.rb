@@ -45,7 +45,7 @@ BATCH_SIZE = 10_000
 CHRPOS_PACK="S>L>L>" # chr, pos, line. L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
-Gf = "g.to_f"
+Gf = "to_float_or_nan(g)"
 Gb = "(g=='NA' ? 255 : (g.to_f*127.0)).to_i"
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
 G0_2 = { "0"=> 0, "1"=> 1, "2" => 2, "NA" => 255 }
@@ -123,9 +123,9 @@ opts = OptionParser.new do |o|
   #   options[:verbose] = true
   # end
 
-  # o.on("-d", "--debug", "Show debug messages and keep intermediate output") do |v|
-  #   options[:debug] = true
-  # end
+  o.on("-d", "--debug", "Show debug messages and keep intermediate output") do |v|
+    options[:debug] = true
+  end
 
   o.separator ""
 
@@ -143,6 +143,12 @@ if options[:show_help]
   exit 1
 end
 
+def to_float_or_nan(str)
+  Float(str)
+rescue ArgumentError
+  Float::NAN
+end
+
 PACK = if options[:gpack]
          options[:gpack]
        else
@@ -157,8 +163,8 @@ EVAL = if options[:geval]
          options[:eval]+"[g]"
        end
 # G_lambda = eval "lambda { |g| p [EVAL, g, #{EVAL}] ; #{EVAL} }"
-$stderr.print "G_lambda = lambda { |g| #{EVAL} }\n"
 G_lambda = eval "lambda { |g| #{EVAL} }"
+$stderr.print "G_lambda = lambda { |g| #{EVAL} }\n"
 
 def convert gs, g_func
   res = gs.map { | g | g_func.call(g) }
@@ -237,7 +243,7 @@ ARGV.each_with_index do |fn|
           fields = # Convert fields to array of values
             case EVAL
             when  "Gf"
-              convert(rest, lambda { |g| g.to_f })
+              convert(rest, lambda { |g| to_float_or_nan(g) })
             when  "Gb"
               convert(rest, G_lambda)
             when  "G0_1"
@@ -247,6 +253,7 @@ ARGV.each_with_index do |fn|
             else
               convert(rest, G_lambda)
             end
+          # p fields
           geno[key] = fields
           prev_key = key
         rescue TypeError
