@@ -1,11 +1,32 @@
 #!/usr/bin/env ruby
 #
-# Convert a geno file to lmdb. The lmdb file contains 3 tables. The genotypes as a list of chars/numbers, the markers
-# as a name with possibly some metadata -- both indexed on a packed chr+pos. And then there is meta in the info table.
+# Convert a geno file to lmdb. The lmdb file contains 3 tables: (1)
+# genotypes as a list of bytes/numbers, (2) markers as a name with
+# possibly some metadata -- both indexed on a packed chr+pos. And then
+# there is metadata in (3) the info table.
 #
-# Example:
+# Currently 2 basic storage formats are supported:
 #
-#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>-1}' --pack 'C*' --geno-json BXD.geno.json
+#    (1) 4-byte floating point and (2) 1-byte translated values.
+#
+# It is easy to support more formats by adapting --pack and --gpack.
+#
+# Four translations are supported out of the box:
+#
+#    Gf   = genotypes as 4-byte floats where missing values are NaN
+#    Gb   = bytes that basically map any value between 0.0..2.0 to 0..254. 255 is for missing values
+#    G0_1 = similar to Gb but assumes input values 0, 0.5 and 1.0. 255 is for missing values
+#    G0_2 = similar to Gb but assumes input values 0, 1 and 2. 255 is for missing values
+#
+# These are supported by pangemma. It is possible to try other translations, but it may need adaptation
+# of pangemma.
+#
+# Example of doing a G0_2:
+#
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>255}' --pack 'C*' --geno-json BXD.geno.json
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval G0_2 --geno-json BXD.geno.json
+#
+# The geno-json is optional and basically adds metadata to the DB.
 #
 # If you get a compatibility error in guix you may need an older Ruby. Otherwise you can do:
 #
@@ -20,7 +41,8 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
-CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
+BATCH_SIZE = 10_000
+CHRPOS_PACK="S>L>L>" # chr, pos, line. L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
 Gf = "g.to_f"
@@ -175,11 +197,12 @@ end
 keys_ordered = 0
 prev_key = ""
 cols = -1
+
 ARGV.each_with_index do |fn|
   $stderr.print "Reading #{fn}\n"
   mdb = fn + ".mdb"
   File.delete(mdb) if File.exist?(mdb)
-  $stderr.print("Writing lmdb #{mdb}...\n")
+  $stderr.print("Writing lmdb #{mdb}...")
   env = LMDB.new(mdb, nosubdir: true,
                  mapsize: 10**12,
                  maxdbs: 10)
@@ -189,46 +212,48 @@ ARGV.each_with_index do |fn|
   maindb = env.database
 
   count = 0
-  File.open(fn).each_line do |line|
-    count += 1
-    marker,loc1,loc2,*rest = line.split(/[\s,]+/)
-    snpchr = anno_marker_tab[marker]
-    raise "Unknown marker #{marker} in #{annofn}!" if !snpchr
-    if cols != -1
-      raise "Differing amount of genotypes at line #{count}: #{line}" if cols != rest.size
-    else
-      cols = rest.size
-      numsamples = cols if numsamples == -1
-      raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
-    end
-    begin
-      # key = marker.force_encoding("ASCII-8BIT")
-      chr,pos,num = snpchr.unpack(CHRPOS_PACK)
-      key = [chr,pos,num].pack(CHRPOS_PACK)
-      raise "key error" if not key==snpchr
-      keys_ordered += 1 if key >= prev_key
-      env.transaction() do
-        geno_marker[key] = marker
-        fields = # Convert fields to array of values
-          case EVAL
-          when  "Gf"
-            convert(rest, lambda { |g| g.to_f })
-          when  "Gb"
-            convert(rest, G_lambda)
-          when  "G0_1"
-            convert(rest, lambda { |g| G0_1[g] })
-          when  "G0_2"
-            convert(rest, lambda { |g| G0_2[g] })
-          else
-            convert(rest, G_lambda)
-          end
-        geno[key] = fields.to_s
+  File.open(fn).each_line.each_slice(BATCH_SIZE) do |batch|
+    print "."
+    env.transaction() do
+      batch.each do |line|
+        count += 1
+        marker,loc1,loc2,*rest = line.split(/[\s,]+/)
+        snpchr = anno_marker_tab[marker]
+        raise "Unknown marker #{marker} in #{annofn}!" if !snpchr
+        if cols != -1
+          raise "Differing amount of genotypes at line #{count}: #{line}" if cols != rest.size
+        else
+          cols = rest.size
+          numsamples = cols if numsamples == -1
+          raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
+        end
+        begin
+          # key = marker.force_encoding("ASCII-8BIT")
+          chr,pos,num = snpchr.unpack(CHRPOS_PACK)
+          key = [chr,pos,num].pack(CHRPOS_PACK)
+          raise "key error" if not key==snpchr
+          keys_ordered += 1 if key >= prev_key
+          geno_marker[key] = marker
+          fields = # Convert fields to array of values
+            case EVAL
+            when  "Gf"
+              convert(rest, lambda { |g| g.to_f })
+            when  "Gb"
+              convert(rest, G_lambda)
+            when  "G0_1"
+              convert(rest, lambda { |g| G0_1[g] })
+            when  "G0_2"
+              convert(rest, lambda { |g| G0_2[g] })
+            else
+              convert(rest, G_lambda)
+            end
+          geno[key] = fields
+          prev_key = key
+        rescue TypeError
+          raise "Problem at line #{count}: #{line}"
+        end
       end
-    rescue TypeError
-      raise "Problem at line #{count}: #{line}"
     end
-
-    prev_key = key
   end
   info = env.database("info", create: true)
   info['numsamples'] = [numsamples].pack("Q") # uint64
@@ -259,7 +284,7 @@ ARGV.each_with_index do |fn|
     o_env.close
   end
   env.close
-  File.rename(fn_o,fn)
+  File.rename(fn_o,fn) if options[:order]
   $stderr.print "Testing #{fn}\n"
   test_env = LMDB.new(fn, nosubdir: true)
   test_info = test_env.database('info', :create=>false)
