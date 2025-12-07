@@ -15,6 +15,7 @@ require 'lmdb'
 require 'optparse'
 require 'socket'
 
+BATCH_SIZE=10_000
 CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
 
 options = { show_help: false }
@@ -56,42 +57,42 @@ M='M'.ord
 
 dup_count = 0
 ARGV.each do |fn|
-  $stderr.print "Reading #{fn}\n"
+  $stderr.print "Reading #{fn}"
   mdb = fn + ".mdb"
   File.delete(mdb) if File.exist?(mdb)
   $stderr.print("Writing lmdb #{mdb}...\n")
-  env = LMDB.new(mdb, nosubdir: true, mapsize: 10**9)
+  env = LMDB.new(mdb, nosubdir: true, nosync: true, mapsize: 10**9)
   maindb = env.database
   # chrpos_tab = env.database("chrpos", create: true)
   marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
 
   count = 0
-    File.open(fn).each_line do |line|
-      count += 1
-      name,pos,chr = line.split(/[\s,]+/)
-      chr_c =
-        if chr == "X"
-          X
-        elsif chr == "Y"
-          Y
-        elsif chr == "M"
-          M
-        else
-          chr.to_i
+  File.open(fn).each_line.each_slice(BATCH_SIZE) do |batch|
+    print "."
+    env.transaction() do
+      batch.each do |line|
+        count += 1
+        name,pos,chr = line.split(/[\s,]+/)
+        chr_c =
+          if chr == "X"
+            X
+          elsif chr == "Y"
+            Y
+          elsif chr == "M"
+            M
+          else
+            chr.to_i
+          end
+        begin
+          pos_i = Integer(pos)
+        rescue ArgumentError, TypeError
+          pos_i = 0 # set anything unknown to position zero
         end
-      begin
-        pos_i = Integer(pos)
-      rescue ArgumentError, TypeError
-        pos_i = 0 # set anything unknown to position zero
-      end
-      env.transaction do
         chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
-
         # chrpos_tab[chrposdup] = name
         marker_tab[name] = chrposdup
       end
-      print "." if count % 10_000 == 0
-      
+    end
   end
   $stderr.print "\n#{marker_tab.size}/#{count} records written\n"
   env.close
