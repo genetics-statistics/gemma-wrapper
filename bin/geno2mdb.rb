@@ -233,13 +233,13 @@ ARGV.each_with_index do |fn|
     env.transaction() do
       batch.each do |line|
         count += 1
-        marker,loc1,loc2,*rest = line.split(/[\s,]+/)
+        marker,loc1,loc2,*gs = line.split(/[\s,]+/)
         snpchr = anno_marker_tab[marker]
         raise "Unknown marker #{marker} in #{annofn}!" if !snpchr
         if cols != -1
-          raise "Differing amount of genotypes at line #{count}: #{line}" if cols != rest.size
+          raise "Differing amount of genotypes at line #{count}: #{line}" if cols != gs.size
         else
-          cols = rest.size
+          cols = gs.size
           numsamples = cols if numsamples == -1
           raise "Wrong number of samples in JSON #{numsamples} for #{cols}" if cols != numsamples
         end
@@ -253,15 +253,15 @@ ARGV.each_with_index do |fn|
           fields,missing = # Convert fields to array of values
             case EVAL
             when  "Gf"
-              convert(rest, lambda { |g| to_float_or_nan(g) })
+              convert(gs, lambda { |g| to_float_or_nan(g) })
             when  "Gb"
-              convert(rest, G_lambda)
+              convert(gs, G_lambda)
             when  "G0_1"
-              convert(rest, lambda { |g| G0_1[g] })
+              convert(gs, lambda { |g| G0_1[g] })
             when  "G0_2"
-              convert(rest, lambda { |g| G0_2[g] })
+              convert(gs, lambda { |g| G0_2[g] })
             else
-              convert(rest, G_lambda)
+              convert(gs, G_lambda)
             end
           # p fields
           geno[key] = fields
