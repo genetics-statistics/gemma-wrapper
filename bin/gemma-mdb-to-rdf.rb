@@ -103,7 +103,7 @@ if snpfn
     is_anno_mdb = true
     $stderr.print("lmdb #{snpfn}...\n")
     snp_env = LMDB.new(snpfn, nosubdir: true)
-    snp_db = snp_env.database(File.basename(snpfn),create: false)
+    snp_db = snp_env.database("marker",create: false)
   else
     # the text file option (GEMMA annotation file)
     File.open(snpfn).each_line do |line|
