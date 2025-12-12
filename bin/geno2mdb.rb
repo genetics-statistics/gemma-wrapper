@@ -25,6 +25,8 @@
 #
 #   ./bin/geno2mdb.rb BXD.geno.bimbam --eval '{"0"=>0,"1"=>1,"2"=>2,"NA"=>255}' --pack 'C*' --anno snps.txt.mdb --geno-json BXD.geno.json
 #   ./bin/geno2mdb.rb BXD.geno.bimbam --eval G0_2 --anno snps.txt.mdb --geno-json BXD.geno.json
+#   ./bin/geno2mdb.rb BXD.geno.bimbam --eval G0_2 --anno snps.txt.mdb --geval "(g=='NA' ? 255 : (g.to_f*4.0)).to_i" --pack 'C*'
+#
 #
 # The geno-json is optional and basically adds metadata to the DB.
 #
@@ -40,11 +42,13 @@ require 'json'
 require 'lmdb'
 require 'optparse'
 require 'socket'
+require 'pp'
 
 BATCH_SIZE = 10_000
 CHRPOS_PACK="S>L>L>" # chr, pos, line. L is uint32, S is uint16 - total 64bit
 
 # Translation tables to char/int
+Geval = "Geval" # roll your own
 Gf = "to_float_or_nan(g)"
 Gb = "(g=='NA' ? 255 : (g.to_f*127.0)).to_i"
 G0_1 = { "0"=> 0, "0.5"=> 1, "1" => 2, "NA" => 255 }
@@ -64,7 +68,6 @@ opts = OptionParser.new do |o|
   o.on('-i','--input TYPE', ['BIMBAM'], 'input type BIMBAM (default)') do |type|
     options[:input] = type
   end
-
   o.on('-e','--eval EVAL',String, "eval conversion - note the short cut methods G0_1,G0_2 (default is G0_2)
                                      Example: --eval {\"0\"=>0,\"1\"=>1,\"2\"=>2,\"NA\"=>255} or --eval G0_1
 
@@ -82,6 +85,7 @@ opts = OptionParser.new do |o|
       options[:geval] = Gb
       options[:pack] = Gbmsg[:pack]
     else
+      options[:geval] = Geval
       options[:eval] = eval
     end
   end
@@ -89,7 +93,7 @@ opts = OptionParser.new do |o|
   o.on('-g','--geval EVAL',String, 'generic eval conversion without assuming it is a hash ([g] is not attached).
                                      Example: --geval {"0"=>0,"1"=>1,"2"=>2,"NA"=>255}[g]
        ') do |geval|
-    options[:format] = geval
+    options[:format] = Geval
     options[:geval] = geval
   end
 
@@ -168,17 +172,18 @@ $stderr.print "G_lambda = lambda { |g| #{EVAL} }\n"
 
 def convert gs, g_func
   res = gs.map { | g | g_func.call(g) }
-  # p res
   missing =
     if res[0].is_a?(Float)
       res.count{ |g| g.nan? }
     else
-      res.count(255) # byte values use 255 for missing data
+      res.count(255) # byte values use 255 as a default for missing data
     end
-  # p [:missing,missing]
-  # p res
-  # original res.pack(PACK)
-  return P_lambda.call(res), missing
+  return res,missing
+end
+
+def pack gs
+  # Pack into string function
+  P_lambda.call(gs)
 end
 
 numsamples =
@@ -201,12 +206,16 @@ meta = {
 }
 
 annofn = options[:anno]
-$stderr.print "Reading #{annofn}\n"
-marker_env = LMDB.new(annofn, nosubdir: true)
-begin
-  anno_marker_tab = marker_env.database("marker", create: false)
-rescue
-  raise "Problem reading annotation file #{annofn}!"
+if annofn
+  $stderr.print "Reading #{annofn}\n"
+  marker_env = LMDB.new(annofn, nosubdir: true)
+  begin
+    anno_marker_tab = marker_env.database("marker", create: false)
+  rescue
+    raise "Problem reading annotation file #{annofn}!"
+  end
+else
+  $stderr.print "WARNING: without annotation file we won't locate the markers correctly!\n"
 end
 keys_ordered = 0
 prev_key = ""
@@ -226,16 +235,25 @@ ARGV.each_with_index do |fn|
   maindb = env.database
   p options
 
+  prev_fields = nil
+  diff = {}
   count = 0
   total_missing = 0
+  warnings = 0
   File.open(fn).each_line.each_slice(BATCH_SIZE) do |batch|
     print "."
     env.transaction() do
       batch.each do |line|
         count += 1
         marker,loc1,loc2,*gs = line.split(/[\s,]+/)
-        snpchr = anno_marker_tab[marker]
-        raise "Unknown marker #{marker} in #{annofn}!" if !snpchr
+        snpchr = nil
+        if annofn
+          snpchr = anno_marker_tab[marker]
+          if !snpchr and warnings<5
+            $stderr.print "WARNING: unknown marker #{marker} in #{annofn}!\n"
+            warnings += 1
+          end
+        end
         if cols != -1
           raise "Differing amount of genotypes at line #{count}: #{line}" if cols != gs.size
         else
@@ -245,13 +263,20 @@ ARGV.each_with_index do |fn|
         end
         begin
           # key = marker.force_encoding("ASCII-8BIT")
-          chr,pos,num = snpchr.unpack(CHRPOS_PACK)
+          chr,pos,num =
+                  if snpchr
+                    snpchr.unpack(CHRPOS_PACK)
+                  else
+                    [0,0,count]
+                  end
           key = [chr,pos,num].pack(CHRPOS_PACK)
-          raise "key error" if not key==snpchr
+          raise "key error" if snpchr and not key==snpchr
           keys_ordered += 1 if key >= prev_key
           geno_marker[key] = marker
           fields,missing = # Convert fields to array of values
             case EVAL
+            when  "Geval"
+              convert(gs, G_lambda)
             when  "Gf"
               convert(gs, lambda { |g| to_float_or_nan(g) })
             when  "Gb"
@@ -263,23 +288,35 @@ ARGV.each_with_index do |fn|
             else
               convert(gs, G_lambda)
             end
-          # p fields
-          geno[key] = fields
+          p [num,chr,pos,fields] if options[:debug]
+          geno[key] = pack(fields)
           prev_key = key
           # track missing data
           total_missing += missing
+          # check gs diff
+          if prev_fields
+            count_misses = fields.zip(prev_fields).count { |pair| pair[0] != pair[1] }
+            if diff[count_misses]
+              diff[count_misses] += 1
+            else
+              diff[count_misses] = 1
+            end
+          end
+          prev_fields = fields
         rescue TypeError
           raise "Problem at line #{count}: #{line}"
         end
-      end
+      end # each_line
     end
   end
+  pp diff.sort
   info = env.database("info", create: true)
   info['numsamples'] = [numsamples].pack("Q") # uint64
   info['nummarkers'] = [geno.size].pack("Q")
   info['meta'] = meta.to_json.to_s
   info['format'] = options[:format].to_s
   info['options'] = options.to_s
+  $stderr.print "\n"
   $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
   $stderr.print "We have #{total_missing} missing values #{(100.0*total_missing/(count*cols)).round(0)}%!\n"
