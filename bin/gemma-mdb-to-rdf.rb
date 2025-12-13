@@ -101,10 +101,11 @@ if snpfn
 
   if snpfn =~ /\.mdb$/
     is_anno_mdb = true
-    $stderr.print("lmdb #{snpfn}...\n")
+    $stderr.print("Using lmdb annotation #{snpfn}...\n")
     snp_env = LMDB.new(snpfn, nosubdir: true)
     snp_db = snp_env.database("marker",create: false)
   else
+    $stderr.print("WARNING: We should use the mdb annotation file!\n")
     # the text file option (GEMMA annotation file)
     File.open(snpfn).each_line do |line|
       snp,pos,chr = line.split(/[\s,]+/)
@@ -137,13 +138,16 @@ get_marker_name_and_key = lambda { |chr,pos|
       end
     key = [chr_c,pos.to_i].pack("cL>")
     marker_name = snp_db[key]
+    raise "ERROR: Missing marker name for #{location}!!" if not marker_name
     # p [chr,pos,chr_c,pos.to_i,marker_name,snp_db]
   else
+    # no mdb file, use text file
     marker_name =
       if options[:anno] and snps.has_key?(location)
         snps[location]
       else
         snp = "chr#{chr}_#{pos}"
+        $stderr.print "Warning - no marker name for #{snp}!\n"
       end
     key = location
   end
@@ -153,6 +157,7 @@ get_marker_name_and_key = lambda { |chr,pos|
 get_marker_info_by_key = lambda { |key|
   if is_anno_mdb
     marker_name = snp_db[key]
+    raise "ERROR: Missing marker name for #{location}!!" if not marker_name
     chr1,pos = key.unpack('cL>')
     chr =
       if chr1 == X
@@ -166,6 +171,7 @@ get_marker_info_by_key = lambda { |key|
       end
     pos = pos.to_s
   else
+    # no mdb file, use text file
     chr,pos = key.split(":")
     marker_name =
       if snps.has_key? key
@@ -281,10 +287,12 @@ ARGV.each do |fn|
           end
           # rdfs:label \"Mapped locus #{locus} for #{name} #{trait}\";
           # FIXME locus.capitalize
+          lodscore = rec[:logP]
+          lodscore = 5.0 if lodscore.infinite?
           print """gn:#{locus}_#{postfix} a gnt:mappedLocus;
       gnt:mappedSnp #{id};
       gnt:locus gn:#{locus.capitalize};
-      gnt:lodScore #{rec[:logP].round(1)};
+      gnt:lodScore #{lodscore.round(1)};
       gnt:af #{rec[:af]};
       gnt:effect #{rec[:effect]}.
 """
