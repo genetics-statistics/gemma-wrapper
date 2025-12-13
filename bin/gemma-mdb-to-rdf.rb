@@ -10,6 +10,8 @@
 #
 # Pjotr Prins (c) 2025
 
+CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
+
 require 'tmpdir'
 require 'json'
 require 'lmdb'
@@ -125,6 +127,8 @@ used_snps = {}
 
 get_marker_name_and_key = lambda { |chr,pos|
   location = "#{chr}:#{pos}"
+  key = nil
+  marker_name = nil
   if is_anno_mdb
     chr_c =
       if chr == "X"
@@ -136,9 +140,16 @@ get_marker_name_and_key = lambda { |chr,pos|
       else
         chr.to_i
       end
-    key = [chr_c,pos.to_i].pack("cL>")
-    marker_name = snp_db[key]
-    raise "ERROR: Missing marker name for #{location}!!" if not marker_name
+    # key = [chr_c,pos.to_i].pack("cL>")
+    locate_key = [chr_c,pos.to_i,0].pack(CHRPOS_PACK)
+    # marker_name = snp_db[key]
+    snp_db.cursor do |cursor|
+      value,key = cursor.set_range(locate_key)
+      p [location,locate_key,key,value]
+     
+      marker_name = value
+      raise "ERROR: Missing marker name for #{location}!!" if not marker_name
+    end
     # p [chr,pos,chr_c,pos.to_i,marker_name,snp_db]
   else
     # no mdb file, use text file
@@ -154,7 +165,7 @@ get_marker_name_and_key = lambda { |chr,pos|
   return marker_name, key
 }
 
-get_marker_info_by_key = lambda { |key|
+get_marker_info_by_key = lambda { |key| # note key should come from above function
   if is_anno_mdb
     marker_name = snp_db[key]
     raise "ERROR: Missing marker name for #{location}!!" if not marker_name
