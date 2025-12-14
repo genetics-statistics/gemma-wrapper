@@ -65,6 +65,14 @@ ARGV.each do |fn|
   maindb = env.database
   # chrpos_tab = env.database("chrpos", create: true)
   marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
+  info = env.database("info", create: true)
+  meta = {
+    "type" => "gemma-anno",
+    "version" => 1.0,
+    "key-format" => CHRPOS_PACK,
+    "rec-format" => "string",
+  }
+  info["meta"] = meta.to_json.to_s
 
   count = 0
   File.open(fn).each_line.each_slice(BATCH_SIZE) do |batch|

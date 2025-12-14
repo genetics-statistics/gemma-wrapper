@@ -13,9 +13,9 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?trait WHERE {
-?traitid a gnt:mappedTrait ;
+SELECT ?trait FROM <http://pangenome-mapped.genenetwork.org> WHERE {
+  ?traitid a gnt:mappedTrait ;
   gnt:traitId ?trait ;
   gnt:run gn:test .
-# ?qtl gnt:mappedQTL ?traitid .
+  # ?qtl gnt:mappedQTL ?traitid .
 }

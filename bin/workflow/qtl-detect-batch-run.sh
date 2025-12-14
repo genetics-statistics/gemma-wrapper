@@ -7,9 +7,13 @@
 export TMPDIR=./tmp
 export RDF=pan-qtl.rdf
 
-for id in `cat pan-ids-sorted.txt` ; do
+../../bin/sparql-qtl-detect.rb >> $RDF
+
+fn=$1
+for id in `cat $fn` ; do
     echo Precomputing $0 for $id
     if [ -e $id.hits.txt ] ; then
+        echo skipping $id
         continue
     fi
     echo "gnt:traitId $id ."
@@ -29,7 +33,7 @@ PREFIX qb: <http://purl.org/linked-data/cube#>
 PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
 PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
-SELECT ?traitid ?lod ?af ?snp ?chr ?pos FROM <http://pan-test.genenetwork.org> WHERE {
+SELECT ?traitid ?lod ?af ?snp ?chr ?pos WHERE {
 ?traitid a gnt:mappedTrait;
          gnt:run gn:test ;
          gnt:traitId \"$id\" ;
@@ -46,6 +50,6 @@ FILTER (contains(?marker,\"Marker\") && ?pos > 1000) # FIXME: this is to avoid d
 } ORDER BY DESC(?lod)
 " > $id.hits.txt
 
-  ../../bin/sparql-qtl-detect.rb --header $id.hits.txt -o RDF >> $RDF
+  ../../bin/sparql-qtl-detect.rb $id.hits.txt -o RDF >> $RDF
 
 done
