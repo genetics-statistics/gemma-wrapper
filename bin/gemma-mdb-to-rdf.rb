@@ -152,12 +152,12 @@ get_marker_name_and_key = lambda { |chr,pos|
     locate_key = [chr_c,pos.to_i,0].pack(CHRPOS_PACK)
     # marker_name = anno_db[key]
     anno_db.cursor do |cursor|
-      marker_name,key = cursor.set_range(locate_key)
+      key,marker_name = cursor.set_range(locate_key)
       raise "ERROR: Missing marker name for #{[location,chr_c,pos,key,marker_name]}!!" if not marker_name
       chr2,pos2,num2 = key.unpack(CHRPOS_PACK)
       h= {:location => location,:locate_key => locate_key,:chr => chr2,:pos => pos2,:found_key => key,:marker => marker_name}
       p h
-      raise "ERROR: Position not matching!" if chr2 != chr or pos2 != pos
+      raise "ERROR: Position not matching! Incompatible anno file?" if chr2 != chr or pos2 != pos
     end
     # p [chr,pos,chr_c,pos.to_i,marker_name,anno_db]
   else
