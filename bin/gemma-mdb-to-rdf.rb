@@ -145,8 +145,10 @@ get_marker_name_and_key = lambda { |chr,pos|
     # marker_name = snp_db[key]
     snp_db.cursor do |cursor|
       value,key = cursor.set_range(locate_key)
-      p [location,locate_key,key,value]
-     
+      chr2,pos2,num2 = value.unpack(CHRPOS_PACK)
+      p [location,chr2,pos2,locate_key,key,value]
+    
+      raise "ERROR: Position not matching!" if chr2 != chr or pos2 != pos 
       marker_name = value
       raise "ERROR: Missing marker name for #{location}!!" if not marker_name
     end
