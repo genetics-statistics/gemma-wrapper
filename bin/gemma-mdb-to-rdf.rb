@@ -10,7 +10,7 @@
 #
 # Pjotr Prins (c) 2025
 
-CHRPOS_PACK="S>L>L>" # L is uint32, S is uint16 - total 64bit
+CHRPOS_PACK="S>L>L>" # anno index key: L is uint32, S is uint16 - total 64bit
 
 require 'tmpdir'
 require 'json'
@@ -93,7 +93,7 @@ end
 snps = {}
 
 is_anno_mdb = false
-snp_env = nil
+anno_env = nil
 db2 = nil
 
 snpfn = options[:anno]
@@ -104,12 +104,12 @@ if snpfn
   if snpfn =~ /\.mdb$/
     is_anno_mdb = true
     $stderr.print("Using lmdb annotation #{snpfn}...\n")
-    snp_env = LMDB.new(snpfn, nosubdir: true)
-    snp_db = snp_env.database("marker",create: false)
+    anno_env = LMDB.new(snpfn, nosubdir: true)
+    anno_db = anno_env.database("marker",create: false)
     begin
-      snp_info = snp_env.database("info",create: false)
-      raise "Metadata missing in anno mdb file" if not snp_info["meta"]
-      meta = JSON.parse(snp_info["meta"])
+      anno_info = anno_env.database("info",create: false)
+      raise "Metadata missing in anno mdb file" if not anno_info["meta"]
+      meta = JSON.parse(anno_info["meta"])
       raise "Not an anno file #{meta}" if meta["type"] != "gemma-anno"
       raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
     rescue
@@ -149,19 +149,17 @@ get_marker_name_and_key = lambda { |chr,pos|
       else
         chr.to_i
       end
-    # key = [chr_c,pos.to_i].pack("cL>")
     locate_key = [chr_c,pos.to_i,0].pack(CHRPOS_PACK)
-    # marker_name = snp_db[key]
-    snp_db.cursor do |cursor|
-      value,key = cursor.set_range(locate_key)
-      raise "ERROR: Missing marker name for #{[location,chr_c,pos,key,value]}!!" if not value
-      chr2,pos2,num2 = value.unpack(CHRPOS_PACK)
-      p [location,chr2,pos2,locate_key,key,value]
-
+    # marker_name = anno_db[key]
+    anno_db.cursor do |cursor|
+      marker_name,key = cursor.set_range(locate_key)
+      raise "ERROR: Missing marker name for #{[location,chr_c,pos,key,marker_name]}!!" if not marker_name
+      chr2,pos2,num2 = key.unpack(CHRPOS_PACK)
+      h= {:location => location,:locate_key => locate_key,:chr => chr2,:pos => pos2,:found_key => key,:marker => marker_name}
+      p h
       raise "ERROR: Position not matching!" if chr2 != chr or pos2 != pos
-      marker_name = value
     end
-    # p [chr,pos,chr_c,pos.to_i,marker_name,snp_db]
+    # p [chr,pos,chr_c,pos.to_i,marker_name,anno_db]
   else
     # no mdb file, use text file
     marker_name =
@@ -178,9 +176,9 @@ get_marker_name_and_key = lambda { |chr,pos|
 
 get_marker_info_by_key = lambda { |key| # note key should come from above function
   if is_anno_mdb
-    marker_name = snp_db[key]
+    marker_name = anno_db[key]
     raise "ERROR: Missing marker name for #{location}!!" if not marker_name
-    chr1,pos = key.unpack('cL>')
+    chr1,pos,line = key.unpack(CHRPOS_PACK)
     chr =
       if chr1 == X
         "X"
@@ -225,7 +223,7 @@ ARGV.each do |fn|
 
       begin
         meta = JSON.parse(db['meta'])
-        raise "Not a geno file #{meta}" if meta["type"] != "gemma-geno"
+        raise "Not a geno file #{meta}" if meta["type"] != "gemma-assoc"
 
       rescue JSON::ParserError
         next
@@ -246,10 +244,13 @@ ARGV.each do |fn|
       std   = meta['std']
       skew  = meta['skew']
       kurtosis  = meta['kurtosis']
+      key_format = meta['key-format']
+      raise "Uknown geno 'pack' key format in meta #{meta}" if not key_format
+      key_format = "cL>" if key_format == '>cL' # translate python version
       $stderr.print("Dataset for #{name} #{trait}\n")
       result = []
       db.each do | key,value |
-        chr,pos = key.unpack('cL>') # note pos is big-endian stored for easy sorting
+        chr,pos = key.unpack(key_format) # note pos is big-endian stored for easy sorting
         af,beta,se,l_mle,p_lrt = value.unpack('fffff')
 
         marker,location = get_marker_name_and_key.call(chr,pos)
