@@ -63,8 +63,7 @@ ARGV.each do |fn|
   $stderr.print("Writing lmdb #{mdb}...")
   env = LMDB.new(mdb, nosubdir: true, nosync: true, mapsize: 10**9)
   maindb = env.database
-  # chrpos_tab = env.database("chrpos", create: true)
-  marker_tab = env.database("marker", create: true) # store reversed marker -> chrpos
+  marker_tab = env.database("marker", create: true) # store chrpos->marker
   info = env.database("info", create: true)
   meta = {
     "type" => "gemma-anno",
@@ -97,8 +96,7 @@ ARGV.each do |fn|
           pos_i = 0 # set anything unknown to position zero
         end
         chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
-        # chrpos_tab[chrposdup] = name
-        marker_tab[name] = chrposdup
+        marker_tab[chrposdup] = name
       end
     end
   end

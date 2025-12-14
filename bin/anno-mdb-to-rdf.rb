@@ -11,6 +11,7 @@ require 'optparse'
 require 'socket'
 
 LOD_THRESHOLD = 5.0
+CHRPOS_PACK="S>L>L>" # chr, pos, line. L is uint32, S is uint16 - total 64bit
 
 X='X'.ord
 Y='Y'.ord
@@ -66,13 +67,26 @@ def rdf_normalize(uri)
   uri.gsub(/-/,"_")
 end
 
-fn = ARGV.shift
+annofn = ARGV.shift
+anno_marker_tab = nil
 
-env = LMDB.new(fn, nosubdir: true)
-db = env.database(File.basename(fn),create: false)
+$stderr.print "Reading #{annofn}\n"
+marker_env = LMDB.new(annofn, nosubdir: true)
+begin
+  anno_marker_tab = marker_env.database("marker", create: false)
+  marker_info = marker_env.database("info",create: false)
+  raise "Metadata missing in anno mdb file" if not marker_info["meta"]
+  meta = JSON.parse(marker_info["meta"])
+  raise "Not an anno file #{meta}" if meta["type"] != "gemma-anno"
+  raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
+rescue
+  raise "Problem reading annotation file #{annofn}!"
+end
 
-db.each do |key,value|
-  chr1,pos = key.unpack('cL>')
+anno_marker_tab.each do |key,marker|
+  # chr1,pos = key.unpack('cL>')
+  chr1,pos,num = key.unpack(CHRPOS_PACK)
+  # p [key,marker,chr1,pos,num]
   chr =
     if chr1 == X
       "X"
@@ -83,10 +97,10 @@ db.each do |key,value|
     else
       chr1
     end
-  pos = pos.to_f/1_000_000
-  id = rdf_normalize(value)
+  # pos = pos.to_f/1_000_000 - let's not adjust
+  id = rdf_normalize(marker)
   print """gn:#{id} a gnt:locus;
-      rdfs:label \"#{value}\";
+      rdfs:label \"#{marker}\";
       gnt:chr \"#{chr}\" ;
       gnt:pos #{pos} .
 """
