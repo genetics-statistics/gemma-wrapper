@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 #
-# Convert a (snp) annotation file to lmdb - ends up being larger, but
-# maybe faster.  The key is stored as a packed "S>L>L>" for
-# [chr,pos,line] where chr is mapped to a number 0..20 and maps X,Y,M
-# to its ASCII values. The data is simply the marker name as a
-# varstring.
+# Convert a marker (snp) annotation file to lmdb - ends up being
+# larger, but maybe faster.  The key is stored as a packed "S>L>L>"
+# for [chr,pos,line] where chr is mapped to a number 0..20 and maps
+# X,Y,M to its ASCII values. line ascertains the key is unique. The
+# data is simply the marker name as a string.
 #
 # If you get a compatibility error in guix you may need an older
 # Ruby. Otherwise you can do:

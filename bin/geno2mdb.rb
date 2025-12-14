@@ -211,6 +211,10 @@ if annofn
   marker_env = LMDB.new(annofn, nosubdir: true)
   begin
     anno_marker_tab = marker_env.database("marker", create: false)
+    marker_info = marker_env.database("info",create: false)
+    raise "Metadata missing in anno mdb file" if not marker_info["meta"]
+    meta = JSON.parse(marker_info["meta"])
+    raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
   rescue
     raise "Problem reading annotation file #{annofn}!"
   end

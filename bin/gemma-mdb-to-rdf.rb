@@ -106,6 +106,14 @@ if snpfn
     $stderr.print("Using lmdb annotation #{snpfn}...\n")
     snp_env = LMDB.new(snpfn, nosubdir: true)
     snp_db = snp_env.database("marker",create: false)
+    begin
+      snp_info = snp_env.database("info",create: false)
+      raise "Metadata missing in anno mdb file" if not snp_info["meta"]
+      meta = JSON.parse(snp_info["meta"])
+      raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
+    rescue
+      raise "Incompatible anno mdb file"
+    end
   else
     $stderr.print("WARNING: We should use the mdb annotation file!\n")
     # the text file option (GEMMA annotation file)
@@ -147,8 +155,8 @@ get_marker_name_and_key = lambda { |chr,pos|
       value,key = cursor.set_range(locate_key)
       chr2,pos2,num2 = value.unpack(CHRPOS_PACK)
       p [location,chr2,pos2,locate_key,key,value]
-    
-      raise "ERROR: Position not matching!" if chr2 != chr or pos2 != pos 
+
+      raise "ERROR: Position not matching!" if chr2 != chr or pos2 != pos
       marker_name = value
       raise "ERROR: Missing marker name for #{location}!!" if not marker_name
     end
