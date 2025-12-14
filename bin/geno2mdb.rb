@@ -208,9 +208,9 @@ meta = {
 annofn = options[:anno]
 if annofn
   $stderr.print "Reading #{annofn}\n"
-  marker_env = LMDB.new(annofn, nosubdir: true)
   begin
-    anno_marker_tab = marker_env.database("marker", create: false)
+    marker_env = LMDB.new(annofn, nosubdir: true)
+    anno_bymarker_tab = marker_env.database("by-marker", create: false)
     marker_info = marker_env.database("info",create: false)
     raise "Metadata missing in anno mdb file" if not marker_info["meta"]
     meta = JSON.parse(marker_info["meta"])
@@ -253,7 +253,7 @@ ARGV.each_with_index do |fn|
         marker,loc1,loc2,*gs = line.split(/[\s,]+/)
         snpchr = nil
         if annofn
-          snpchr = anno_marker_tab[marker]
+          snpchr = anno_bymarker_tab[marker]
           if !snpchr
             if warnings<5
               $stderr.print "WARNING: unknown marker #{marker} in #{annofn}!\n"

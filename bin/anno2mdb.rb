@@ -61,9 +61,10 @@ ARGV.each do |fn|
   mdb = fn + ".mdb"
   File.delete(mdb) if File.exist?(mdb)
   $stderr.print("Writing lmdb #{mdb}...")
-  env = LMDB.new(mdb, nosubdir: true, nosync: true, mapsize: 10**9)
+  env = LMDB.new(mdb, nosubdir: true, nosync: true, mapsize: 10**12)
   maindb = env.database
   marker_tab = env.database("marker", create: true) # store chrpos->marker
+  by_marker_tab = env.database("by-marker", create: true) # store marker->chrpos
   info = env.database("info", create: true)
   meta = {
     "type" => "gemma-anno",
@@ -97,6 +98,7 @@ ARGV.each do |fn|
         end
         chrposdup = [chr_c,pos_i,count].pack(CHRPOS_PACK) # count handles duplicates
         marker_tab[chrposdup] = name
+        by_marker_tab[name] = chrposdup
       end
     end
   end
