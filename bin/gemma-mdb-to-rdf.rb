@@ -110,6 +110,7 @@ if snpfn
       snp_info = snp_env.database("info",create: false)
       raise "Metadata missing in anno mdb file" if not snp_info["meta"]
       meta = JSON.parse(snp_info["meta"])
+      raise "Not an anno file #{meta}" if meta["type"] != "gemma-anno"
       raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
     rescue
       raise "Incompatible anno mdb file"
@@ -224,6 +225,8 @@ ARGV.each do |fn|
 
       begin
         meta = JSON.parse(db['meta'])
+        raise "Not a geno file #{meta}" if meta["type"] != "gemma-geno"
+
       rescue JSON::ParserError
         next
       end

@@ -214,6 +214,7 @@ if annofn
     marker_info = marker_env.database("info",create: false)
     raise "Metadata missing in anno mdb file" if not marker_info["meta"]
     meta = JSON.parse(marker_info["meta"])
+    raise "Not an anno file #{meta}" if meta["type"] != "gemma-anno"
     raise "Incompatible key format" if meta["key-format"] != CHRPOS_PACK
   rescue
     raise "Problem reading annotation file #{annofn}!"
@@ -253,10 +254,15 @@ ARGV.each_with_index do |fn|
         snpchr = nil
         if annofn
           snpchr = anno_marker_tab[marker]
-          if !snpchr and warnings<5
-            $stderr.print "WARNING: unknown marker #{marker} in #{annofn}!\n"
+          if !snpchr
+            if warnings<5
+              $stderr.print "WARNING: unknown marker #{marker} in #{annofn}!\n"
+            elsif warnings == 5
+              $stderr.print "WARNING: too many warnings. Skipping the rest...\n"
+            end
             warnings += 1
           end
+
         end
         if cols != -1
           raise "Differing amount of genotypes at line #{count}: #{line}" if cols != gs.size
@@ -323,7 +329,8 @@ ARGV.each_with_index do |fn|
   $stderr.print "\n"
   $stderr.print "#{keys_ordered}/#{count} keys are ordered (#{((1.0*keys_ordered/count)*100.0).round(0)}%)\n"
   $stderr.print "#{count-geno.size}/#{geno.size} are duplicate keys!\n"
-  $stderr.print "We have #{total_missing} missing values #{(100.0*total_missing/(count*cols)).round(0)}%!\n"
+  $stderr.print "We have #{total_missing}/#{count*cols} missing values (#{(100.0*total_missing/(count*cols)).round(0)}%)!\n"
+  $stderr.print "Missing marker name #{warnings}/#{geno.size} warnings (#{(100.0*warnings/geno.size).round(0)}%)\n" if warnings
   fn_o = fn + ".order.mdb"
   fn = fn + '.mdb'
   File.delete(fn_o) if File.exist?(fn_o)
