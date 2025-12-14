@@ -153,11 +153,16 @@ get_marker_name_and_key = lambda { |chr,pos|
     # marker_name = anno_db[key]
     anno_db.cursor do |cursor|
       key,marker_name = cursor.set_range(locate_key)
-      raise "ERROR: Missing marker name for #{[location,chr_c,pos,key,marker_name]}!!" if not marker_name
-      chr2,pos2,num2 = key.unpack(CHRPOS_PACK)
-      h= {:location => location,:locate_key => locate_key,:chr => chr2,:pos => pos2,:found_key => key,:marker => marker_name}
-      p h
-      raise "ERROR: Position not matching! Incompatible anno file?" if chr2 != chr or pos2 != pos
+      # $stderr.print "#{marker_name}\n"
+      if not marker_name
+        $stderr.print "Warning: Missing marker name for #{[location,chr_c,pos,key,marker_name]}!!\n"
+        marker_name = "chr#{chr}_#{pos}"
+      else
+        chr2,pos2,num2 = key.unpack(CHRPOS_PACK)
+        h= {:location => location,:locate_key => locate_key,:chr => chr2,:pos => pos2,:found_key => key,:marker => marker_name}
+        # p h
+        $stderr.print "Warning: Position not matching! Incompatible anno file? #{h}\n" if chr2 != chr or pos2 != pos
+      end
     end
     # p [chr,pos,chr_c,pos.to_i,marker_name,anno_db]
   else
@@ -171,7 +176,7 @@ get_marker_name_and_key = lambda { |chr,pos|
       end
     key = location
   end
-  return marker_name, key
+  return marker_name,key
 }
 
 get_marker_info_by_key = lambda { |key| # note key should come from above function
