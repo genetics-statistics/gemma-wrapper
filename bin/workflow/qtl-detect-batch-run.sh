@@ -7,7 +7,7 @@
 export TMPDIR=./tmp
 export RDF=pan-qtl.rdf
 
-../../bin/sparql-qtl-detect.rb >> $RDF
+../../bin/sparql-qtl-detect.rb --header -o RDF >> $RDF
 
 fn=$1
 for id in `cat $fn` ; do
@@ -46,7 +46,7 @@ FILTER(?lod >= 5.0) .
 ?locus rdfs:label ?marker ;
          gnt:chr ?chr ;
          gnt:pos ?pos .
-FILTER (contains(?marker,\"Marker\") && ?pos > 1000) # FIXME: this is to avoid duplicates
+# FILTER (contains(?marker,\"Marker\") && ?pos > 1000) # FIXME: this is to avoid duplicates
 } ORDER BY DESC(?lod)
 " > $id.hits.txt
 

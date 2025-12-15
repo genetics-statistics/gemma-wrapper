@@ -34,7 +34,7 @@ end
 
 opts.parse!(ARGV)
 
-if options[:show_help] or ARGV.size == 0
+if options[:show_help] 
   print opts
   # print USAGE
   exit 1
