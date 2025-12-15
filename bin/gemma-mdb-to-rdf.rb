@@ -106,6 +106,7 @@ if snpfn
     $stderr.print("Using lmdb annotation #{snpfn}...\n")
     anno_env = LMDB.new(snpfn, nosubdir: true)
     anno_db = anno_env.database("marker",create: false)
+    by_marker_db = anno_env.database("by-marker",create: false)
     begin
       anno_info = anno_env.database("info",create: false)
       raise "Metadata missing in anno mdb file" if not anno_info["meta"]
@@ -181,8 +182,7 @@ get_marker_name_and_key = lambda { |chr,pos|
 
 get_marker_info_by_key = lambda { |key| # note key should come from above function
   if is_anno_mdb
-    marker_name = anno_db[key]
-    raise "ERROR: Missing marker name for #{location}!!" if not marker_name
+    return nil,0,0 if not key
     chr1,pos,line = key.unpack(CHRPOS_PACK)
     chr =
       if chr1 == X
@@ -195,6 +195,8 @@ get_marker_info_by_key = lambda { |key| # note key should come from above functi
         chr1
       end
     pos = pos.to_s
+    marker_name = anno_db[key]
+    raise "ERROR: Missing marker name for #{key}!!" if not marker_name
   else
     # no mdb file, use text file
     chr,pos = key.split(":")
@@ -258,7 +260,7 @@ ARGV.each.with_index do |fn,countfn|
         chr,pos = key.unpack(key_format) # note pos is big-endian stored for easy sorting
         af,beta,se,l_mle,p_lrt = value.unpack('fffff')
 
-        marker,location = get_marker_name_and_key.call(chr,pos)
+        marker,key2 = get_marker_name_and_key.call(chr,pos)
 
         if not options[:snps]
           marker = "Chr#{chr}_#{pos}" if not marker
@@ -271,7 +273,7 @@ ARGV.each.with_index do |fn,countfn|
             result.push rec
           end
         end
-        used_snps[location] = true
+        used_snps[key2] = true
       end
       env.close
       if not options[:snps] # output all triples
