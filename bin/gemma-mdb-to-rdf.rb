@@ -206,9 +206,9 @@ get_marker_info_by_key = lambda { |key| # note key should come from above functi
   return marker_name,chr,pos
 }
 
-ARGV.each do |fn|
+ARGV.each.with_index do |fn,countfn|
   Dir.mktmpdir do |tmpdir|
-    $stderr.print("Parsing #{fn}...\n")
+    $stderr.print("Parsing #{countfn}:#{fn}...\n")
     if fn =~ /xz$/
       $stderr.print `tar xvJf #{fn} -C #{tmpdir} > /dev/null`
     else
