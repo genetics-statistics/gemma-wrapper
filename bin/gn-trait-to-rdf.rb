@@ -38,7 +38,9 @@ end
 
 ARGV.each do |traitid|
   $stderr.print "Reading #{traitid}\n"
-  buf = `curl http://127.0.0.1:8091/dataset/bxd-publish/values/#{traitid}.json`
+  cmd = "curl http://127.0.0.1:8091/dataset/bxd-publish/values/#{traitid}.json"
+  $stderr.print cmd
+  buf = `#{cmd}`
   samples = JSON.parse(buf)
   # p json
   samples.each do | k,v |
