@@ -64,7 +64,7 @@ end
 
 
 def rdf_normalize(uri)
-  uri.gsub(/-/,"_")
+  uri.gsub(/[-<+>]/,"_")
 end
 
 annofn = ARGV.shift

@@ -36,6 +36,10 @@ if options[:show_help]
   exit 1
 end
 
+def rdf_normalize(uri)
+  uri.gsub(/[-<+>]/,"_")
+end
+
 ARGV.each do |traitid|
   $stderr.print "Reading #{traitid}\n"
   cmd = "curl http://127.0.0.1:8091/dataset/bxd-publish/values/#{traitid}.json"
@@ -44,7 +48,7 @@ ARGV.each do |traitid|
   samples = JSON.parse(buf)
   # p json
   samples.each do | k,v |
-    sample = k.capitalize
+    sample = rdf_normalize(k.capitalize)
   print """gn:traitBxd_#{traitid} gnt:sample_id gn:#{sample} .
 """
   end
