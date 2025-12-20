@@ -1,0 +1,31 @@
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX gn: <http://genenetwork.org/id/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX gnc: <http://genenetwork.org/category/>
+PREFIX gnt: <http://genenetwork.org/term/>
+PREFIX sdmx-measure: <http://purl.org/linked-data/sdmx/2009/measure#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+PREFIX qb: <http://purl.org/linked-data/cube#>
+PREFIX xkos: <http://rdf-vocabulary.ddialliance.org/xkos#>
+PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
+
+SELECT ?traitid ?lod ?af ?snp ?marker ?chr ?pos WHERE {
+  ?traitid a gnt:mappedTrait;
+         gnt:run gn:test ;
+         gnt:traitId "10002" ;
+         gnt:traitId ?trait .
+  ?snp gnt:mappedSnp ?traitid ;
+        gnt:locus ?locus ;
+        gnt:lodScore ?lod ;
+        gnt:af ?af .
+  FILTER(?lod >= 5.0) .
+  OPTIONAL {
+  ?locus rdfs:label ?marker ;
+    gnt:chr ?chr ;
+    gnt:pos ?pos .
+  }
+# FILTER (contains(?marker,\"Marker\") && ?pos > 1000) # FIXME: this is to avoid duplicates
+} ORDER BY DESC(?lod)
