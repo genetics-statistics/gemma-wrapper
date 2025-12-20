@@ -48,7 +48,11 @@ def rdf_expand_str(meta,key,predicate=nil,value=nil)
     predicate = rdf_normalize(key.to_s) if not predicate
     object = meta[key]
     object = value.call(object) if value
-    print "                                gnt:#{predicate} \"#{object}\" ;\n"
+    if predicate =~ /:/
+      print "                                #{predicate} \"#{object}\" ;\n"
+    else
+      print "                                gnt:#{predicate} \"#{object}\" ;\n"
+    end
   end
 end
 
@@ -133,11 +137,14 @@ ARGV.each do |fn|
           rdf_expand_str(meta,:birth_seq_ind)
           rdf_expand_str(meta,:availability_2023)
           rdf_expand_str(meta,:extinct)
-          rdf_expand_str(meta,:notes)
+          rdf_expand_str(meta,:notes,"rdfs:comment")
           rdf_expand(meta,:has_genotypes,nil,lambda { |v| v ? "true" : "false" })
           print """                                rdfs:label \"#{id}\" .
 """
     end
   end
 end
-p alt
+alt.each do | k,v |
+  print """
+  gn:#{rdf_normalize(k.capitalize)} owl:sameAs gn:#{rdf_normalize(v.capitalize)} ."""
+end
