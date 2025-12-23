@@ -125,7 +125,7 @@ ARGV.each do |fn|
           sample = rdf_normalize(id.capitalize)
           print """gn:#{sample}
                                 dct:description \"#{meta[:expanded_name]}\" ;
-                                gnt:epoch #{meta[:epoch]} ;
+                                gnt:epoch #{meta[:epoch].to_i} ;
                                 gnt:availability \"#{meta[:availability_2023]}\" ;
 """
           rdf_expand_str(meta,:method)
