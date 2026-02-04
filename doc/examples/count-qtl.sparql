@@ -15,6 +15,6 @@ PREFIX pubmed: <http://rdf.ncbi.nlm.nih.gov/pubmed/>
 
 SELECT count(DISTINCT ?qtl) WHERE {
      ?qtl gnt:mappedQTL ?traitid .
-    ?traitid a gnt:mappedTrait ;
-       gnt:run gn:test .
+    ?traitid a gnt:mappedTrait .
+    MINUS { ?traitid gnt:run gn:test } .
  } LIMIT 10
