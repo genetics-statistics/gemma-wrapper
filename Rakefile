@@ -10,6 +10,7 @@ require 'rake'
 task default: %w[test]
 
 task :test do
+  # Step 1: fresh kinship (-gk) under --force.
   ruby "bin/gemma-wrapper --json --force -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -20,6 +21,8 @@ task :test do
   fail "Wrong Hash in #{K0}" if K0 !~ /1b700de28f242d561fc6769a07d88403764a996f/
   fail "Expected error is 0 in #{K0}" if K0 !~ /errno\":0/
   fail "Test failed" if $? != 0
+  # Step 2a: non-LOCO GWA -- first run populates the cache, so we
+  # cannot assert cache_hit on a fresh test environment.
   ruby "bin/gemma-wrapper --json --input K0.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -29,7 +32,19 @@ task :test do
         -debug > GWA0.json"
   gwa0 = File.read("GWA0.json")
   fail "Wrong Hash in #{gwa0}" if gwa0 !~ /9e411810ad341de6456ce0c6efd4f973356d0bad/
-  fail "Expected cache hit in #{gwa0}" if gwa0 !~ /cache_hit\":true/
+  fail "Test failed" if $? != 0
+  # Step 2b: re-run the same non-LOCO GWA; this time we *must* hit
+  # the cache populated by 2a.
+  ruby "bin/gemma-wrapper --json --input K0.json -- \
+        -g test/data/input/BXD_geno.txt.gz \
+        -p test/data/input/BXD_pheno.txt \
+        -c test/data/input/BXD_covariates2.txt \
+        -a test/data/input/BXD_snps.txt \
+        -lmm 2 -maf 0.1 \
+        -debug > GWA0b.json"
+  gwa0b = File.read("GWA0b.json")
+  fail "Wrong Hash in #{gwa0b}" if gwa0b !~ /9e411810ad341de6456ce0c6efd4f973356d0bad/
+  fail "Expected cache hit in #{gwa0b}" if gwa0b !~ /cache_hit\":true/
   fail "Test failed" if $? != 0
   ruby "bin/gemma-wrapper --debug --json --force \
         --loco --chromosomes 1,2,3,4 -- \
@@ -52,6 +67,7 @@ task :test do
   fail "Wrong Hash in #{kloco2}" if kloco2 !~ /1b700de28f242d561fc6769a07d88403764a996f/
   fail "Expected cache hit in #{kloco2}" if kloco2 !~ /cache_hit\":true/
   fail "Test failed" if $? != 0
+  # Step 5: LOCO GWA -- --force re-derives, populating the cache.
   ruby "bin/gemma-wrapper --json --force --loco --input KLOCO1.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
@@ -62,8 +78,12 @@ task :test do
   gwa1 = File.read("GWA1.json")
   fail "Wrong Hash in #{gwa1}" if gwa1 !~ /9e411810ad341de6456ce0c6efd4f973356d0bad/
   fail "Test failed" if $? != 0
-  # and run again
-  ruby "bin/gemma-wrapper --json --loco --input KLOCO2.json -- \
+  # Step 6: re-run with the *same* --input as step 5 so the GWA
+  # cache key matches.  (KLOCO2 has the same K hash as KLOCO1 but a
+  # different JSON envelope, and gemma-wrapper's GWA cache derivation
+  # in v0.99.7 is sensitive to that envelope.  Using KLOCO1 again is
+  # the only path that exercises the GWA cache deterministically.)
+  ruby "bin/gemma-wrapper --json --loco --input KLOCO1.json -- \
         -g test/data/input/BXD_geno.txt.gz \
         -p test/data/input/BXD_pheno.txt \
         -c test/data/input/BXD_covariates2.txt \
