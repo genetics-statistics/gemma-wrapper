@@ -767,6 +767,15 @@ else
     print json_out.call # short cut because lmdb is self contained, also for LOCO
     exit 0
   end
+  # Unconditionally unpack a pre-existing archive into tmpdir, same as
+  # the kinship branch above -- without --lmdb there was previously no
+  # equivalent step, so gwas' own cache.call below could never find a
+  # restored .assoc.txt/.log.txt pair and always recomputed GEMMA, even
+  # with a valid cached archive sitting in cache_dir.
+  if File.exist? ARCHIVE and not options[:force]
+    info.call "Unpack archive #{ARCHIVE}!"
+    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+  end
 
   raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
 
@@ -981,9 +990,14 @@ if create_archive
     execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{LMDB} --transform='s,^#{tmpdir[1..-1]}/,,'"
   else
     if DO_COMPUTE_KINSHIP
-      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.cXX.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
+      # *.log.txt too: the cache lambda above only counts a cache hit
+      # when BOTH the data file and its matching .log.txt (containing
+      # "total computation time") already exist in tmpdir -- an
+      # archive that only ever held the data file could never produce
+      # a cache hit once unpacked into a fresh tmpdir on a later run.
+      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.cXX.txt #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
     else
-      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json --transform='s,^#{tmpdir[1..-1]}/,,'"
+      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
     end
   end
 end
