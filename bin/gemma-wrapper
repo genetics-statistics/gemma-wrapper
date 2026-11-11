@@ -418,6 +418,14 @@ execute = lambda { |cmd|
   $stderr.print(stdout_buf)
   $stderr.print(stderr_buf)
   if err and err != 0
+    # GEMMA's own complaint, on its own lines and before the backtrace: a Ruby
+    # stack trace says where the wrapper gave up, not why GEMMA did. This is the
+    # difference between "FATAL ERROR: bailed out with 20" and "unknown option
+    # -pve" -- and the caller's error handler can only report what it is given.
+    reasons = (stdout_buf+"\n"+stderr_buf).split("\n").map(&:strip).select { |l|
+      l =~ /^(ERROR|\*\*\*\*|error!)/ && !l.include?("gemma-wrapper")
+    }
+    reasons.last(3).each { |l| $stderr.print "gemma: #{l}\n" }
     $stderr.print "FATAL ERROR: gemma-wrapper bailed out with #{err}\n"
     $stderr.print Kernel.caller().join("\n")
     exit 1
@@ -777,12 +785,21 @@ else
     execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
   end
 
-  raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
+  # The LOCO reduction needs the JSON the kinship step wrote (--input). Without
+  # it there is nothing to reduce against, and dereferencing json_in here raised
+  # "undefined method '[]' for nil" *inside* Dir.mktmpdir -- reported as a Ruby
+  # backtrace rather than as the missing input it is. Say so instead.
+  if options[:input]
+    raise "JSON problem, file #{options[:input]} is not -gk derived" if json_in["type"] != "K"
+  elsif LOCO
+    raise "LOCO needs the --input JSON the kinship step writes (--json); without it \n" +
+          "there is no per-chromosome output to reduce. Re-run with --json --input <kinship.json>."
+  end
 
   trait_values = nil
 
   if LOCO
-    k_files = json_in["files"].map { |rec| [rec[0],rec[2]] }
+    k_files = options[:input] ? json_in["files"].map { |rec| [rec[0],rec[2]] } : []
   end
   if not options[:permutate]
     pfn = options[:phenotypes]
