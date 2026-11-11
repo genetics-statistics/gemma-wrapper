@@ -1016,6 +1016,18 @@ if create_archive
     else
       execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
     end
+    # Leave the per-run logs beside the archive. They are in the .tar.xz
+    # already, but reading one out of it means unpacking a multi-megabyte
+    # archive to see a few lines -- and those lines are where GEMMA writes its
+    # own variance components (`pve estimate`, `se(pve)`, `vg`, `ve`). The
+    # files are small and keyed by the same hash as the archive.
+    Dir.glob(tmpdir+"/*.log.txt").each do |logfn|
+      begin
+        FileUtils.cp(logfn, options[:cache_dir]+"/"+File.basename(logfn)) unless File.exist?(options[:cache_dir]+"/"+File.basename(logfn))
+      rescue StandardError => e
+        debug.call("could not keep #{logfn}: #{e}")
+      end
+    end
   end
 end
 
