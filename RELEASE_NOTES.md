@@ -3,6 +3,9 @@
 * Stable release!
 * lmdb output contains metadata
 * improved error handling
+* --gemma-dir DIR (or GEMMA_DIR) names the directory holding gemma and its
+  helpers -- time, tar, parallel -- so the wrapper runs with an empty PATH;
+  GNU time is optional now (warn and run untimed instead of dying)
 
 ## ChangeLog v0.99.7 (20240706)
 

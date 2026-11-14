@@ -99,6 +99,25 @@ use the GEMMA_COMMAND environment variable, e.g.
 
     env GEMMA_COMMAND=~/opt/gemma/bin/gemma ./bin/gemma-wrapper --help
 
+## The GEMMA toolchain directory
+
+The wrapper does not only run gemma: it also shells out to the programs
+that usually sit beside it -- GNU time (for the -v statistics in the JSON),
+tar (for the cache archives, which compresses through xz) and parallel
+(for LOCO). Naming the directory that holds all of them once is better
+than arranging a PATH, and it is what a container, a Guix profile or a
+module system has to hand:
+
+    gemma-wrapper --gemma-dir ~/opt/gemma/bin ...
+    env GEMMA_DIR=~/opt/gemma/bin gemma-wrapper ...
+
+with an empty PATH that is enough to run a full LOCO job. The order of
+precedence is GEMMA_COMMAND (a binary) over --gemma-dir/GEMMA_DIR (a
+directory) over PATH, and the directory is also put in front of the PATH
+that tar and parallel run with, so xz and the jobs' shell are found too.
+GNU time is the one piece you can leave out: the wrapper warns and runs
+untimed, without the wall clock and RAM figures.
+
 to pass switches to GEMMA put them after '--' e.g.
 
     gemma-wrapper -v -- -h

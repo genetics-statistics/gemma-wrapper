@@ -39,6 +39,16 @@ GEMMA wrapper example:
 Gemma gets used from the path. You can override by setting
 
       env GEMMA_COMMAND=path/bin/gemma gemma-wrapper ...
+
+or by naming the directory that holds the whole GEMMA toolchain -- gemma
+itself and the helper programs this wrapper shells out to (time, tar,
+parallel) -- once:
+
+      gemma-wrapper --gemma-dir /path/to/bin ...
+      env GEMMA_DIR=/path/to/bin gemma-wrapper ...
+
+which is what a container or a Guix profile wants: no PATH surgery, and
+no wrapper drifting towards a different gemma than the one next to it.
 "
 # These are used for testing compatibility with the gemma tool
 GEMMA_V_MAJOR = 98
@@ -51,20 +61,58 @@ BIN = File.join(basepath,'bin')
 VERSION_FILENAME=File.join(basepath,'VERSION')
 version = File.new(VERSION_FILENAME).read.chomp
 
-# ---- GEMMA path
+# ---- GEMMA toolchain directory
+#
+# The GEMMA toolchain is usually one directory: gemma plus the helpers this
+# wrapper shells out to -- GNU time (for the -v stats), tar (for the cache
+# archives) and parallel (for LOCO).  Naming that directory once beats a PATH
+# that has to be arranged by whoever calls us, and it is what a Guix profile or
+# a container has to hand.  Precedence, most explicit first:
+#
+#   GEMMA_COMMAND (a binary)  >  --gemma-dir / GEMMA_DIR (a directory)  >  PATH
+#
+# The directory is read from GEMMA_DIR and from a --gemma-dir in ARGV before
+# option parsing, because the gemma version banner is printed (and gemma is
+# invoked) before OptionParser has run.
 
-gemma_command = ENV['GEMMA_COMMAND']
+def find_tool(name, dirs)
+  Array(dirs).compact.each do |dir|
+    try_bin = File.join(dir, name)
+    return try_bin if File.executable?(try_bin)
+  end
+  ENV['PATH'].to_s.split(File::PATH_SEPARATOR).each do |dir|
+    try_bin = File.join(dir, name)
+    return try_bin if File.executable?(try_bin)
+  end
+  nil
+end
 
-# Look for gemma
-if not gemma_command
-  ENV['PATH'].split(':').each do | path |
-    try_bin = path + '/' + 'gemma'
-    if File.executable?(try_bin)
-      gemma_command = try_bin
-      break
-    end
+gemma_dir = ENV['GEMMA_DIR']
+# only our own switches: anything after `--` belongs to gemma
+wrapper_argv = ARGV[0...(ARGV.index('--') || ARGV.size)]
+wrapper_argv.each_with_index do |arg, i|
+  if arg == '--gemma-dir'
+    gemma_dir = wrapper_argv[i+1]
+  elsif arg.start_with?('--gemma-dir=')
+    gemma_dir = arg.split('=',2)[1]
   end
 end
+# a GEMMA_COMMAND also says where its neighbours are
+tool_dirs = [gemma_dir, (File.dirname(ENV['GEMMA_COMMAND']) if ENV['GEMMA_COMMAND'])].compact
+
+gemma_command = ENV['GEMMA_COMMAND'] || find_tool('gemma', tool_dirs)
+time_command = find_tool('time', tool_dirs)
+tar_command = find_tool('tar', tool_dirs)
+parallel_command = find_tool('parallel', tool_dirs)
+# `env` is needed by the tar lines that set XZ_OPT; taking it from the same
+# directory means the wrapper works with an empty PATH, which is the point of
+# naming the toolchain in one place.
+env_command = find_tool('env', tool_dirs) || 'env'
+# tar compresses through xz, which it finds on PATH, so a toolchain directory
+# also goes in front of the PATH those lines run with.  Without this the
+# archive step dies as "tar: Child returned status 127" once PATH is empty.
+tool_path = lambda { (tool_dirs + [ENV['PATH'].to_s]).reject { |d| d.nil? or d.empty? }.uniq.join(File::PATH_SEPARATOR) }
+tar_env = lambda { tool_dirs.empty? ? "#{env_command} XZ_OPT='-T0'" : "#{env_command} XZ_OPT='-T0' PATH=\"#{tool_path.call}\"" }
 
 hashme = nil
 
@@ -86,7 +134,7 @@ if split_at
   gemma_args = ARGV[split_at+1..-1]
 end
 
-options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, cache_dir: Dir.tmpdir(), quiet: false, phenotypes: nil, phenotype_column: 1, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
+options = { show_help: false, source: 'https://github.com/genetics-statistics/gemma-wrapper', version: version+' (Pjotr Prins)', date: Time.now.to_s, gemma_command: gemma_command, gemma_dir: gemma_dir, cache_dir: Dir.tmpdir(), quiet: false, phenotypes: nil, phenotype_column: 1, lmdb: nil, parallel: nil, trait: "unknown", name: "test" }
 
 opts = OptionParser.new do |o|
   o.banner = "\nUsage: #{File.basename($0)} [options] -- [gemma-options]"
@@ -142,6 +190,18 @@ opts = OptionParser.new do |o|
   o.on('--input filen',String, 'JSON input variables (used for LOCO control and reduction)') do |filen|
     options[:input] = filen
     raise "JSON input file #{filen} does not exist" if !File.exist?(filen)
+  end
+
+  o.on('--gemma-dir DIR',String, 'Directory holding gemma and its helper programs (time, tar, parallel); default $GEMMA_DIR or PATH') do |dir|
+    raise "--gemma-dir #{dir} is not a directory" if !File.directory?(dir)
+    options[:gemma_dir] = dir
+    tool_dirs.unshift(dir) if !tool_dirs.include?(dir)
+    gemma_command = find_tool('gemma', tool_dirs)
+    options[:gemma_command] = gemma_command
+    time_command = find_tool('time', tool_dirs)
+    tar_command = find_tool('tar', tool_dirs)
+    parallel_command = find_tool('parallel', tool_dirs)
+    env_command = find_tool('env', tool_dirs) || 'env'
   end
 
   o.on('--cache-dir path',String, 'Use a cache directory') do |path|
@@ -220,6 +280,14 @@ opts = OptionParser.new do |o|
 end
 
 opts.parse!(ARGV)
+
+# Help before the version banner: printing the options should not need gemma,
+# which matters exactly when the toolchain is what you are trying to point at.
+if options[:show_help] or gemma_args == nil
+  print opts
+  print USAGE
+  exit 1
+end
 
 # ---- Output handlers
 OUTPUT = (options[:json] ? $stderr : $stdout )
@@ -313,12 +381,6 @@ warning.call "GEMMA version is out of date. Update GEMMA to 0.#{GEMMA_V_MAJOR}.#
 options[:gemma_version_header] = gemma_version_header
 options[:gemma_version] = gemma_version
 
-if options[:show_help] or gemma_args == nil
-  print opts
-  print USAGE
-  exit 1
-end
-
 if RUBY_VERSION =~ /^1/
   warning "does not run on Ruby 1.x\n"
 end
@@ -336,16 +398,23 @@ DO_COMPUTE_GWA = !DO_COMPUTE_KINSHIP
 
 if options[:parallel]
   begin
-    skip_cite = `echo "will cite" |parallel --citation`
+    skip_cite = `echo "will cite" |#{parallel_command} --citation`
     debug.call(skip_cite)
-    PARALLEL_INFO = `parallel --help`
+    PARALLEL_INFO = `#{parallel_command} --help`
   rescue Errno::ENOENT
-    error.call "<parallel> command not found"
+    error.call "<parallel> command not found (looked in #{tool_dirs.empty? ? 'PATH' : tool_dirs.join(', ')}); --gemma-dir DIR names the toolchain"
   end
   parallel_cmds = []
   if not options[:json]
     error.call "<parallel> needs --json switch"
   end
+end
+
+# tar carries the cache archives: without it there is no caching, and the
+# failure would otherwise surface as "env: 'tar': No such file or directory"
+# from inside a shell.
+if tar_command == nil
+  error.call "<tar> command not found (looked in #{tool_dirs.empty? ? 'PATH' : tool_dirs.join(', ')}); --gemma-dir DIR names the toolchain"
 end
 
 # ---- Fetch chromosomes from SNP annotation file
@@ -400,13 +469,23 @@ parse_stats = lambda { |buf|
 
 run_stat = {}
 
+# `time -v` is how the per-job stats (wall clock, resident set size) reach the
+# JSON.  It is worth having, it is not worth failing over: on a minimal image
+# there is no GNU time, and dying with Errno::ENOENT inside Open3.popen_run
+# says nothing about what is wrong.  Measured, in a container that had gemma
+# and tar but no time.
+if time_command == nil
+  warning.call "GNU time not found (looked in #{tool_dirs.empty? ? 'PATH' : tool_dirs.join(', ')}): running untimed, no wall clock or RAM stats; --gemma-dir DIR names the toolchain"
+end
+timed = lambda { |cmd| time_command ? "#{time_command} -v #{cmd}" : cmd }
+
 execute = lambda { |cmd|
   info.call("Executing: #{cmd}")
   err = 0
   stdout_buf = ""
   stderr_buf = ""
   stats = {}
-  Open3.popen3("time -v #{cmd}") do |stdin,stdout,stderr,wait_thr|
+  Open3.popen3(timed.call(cmd)) do |stdin,stdout,stderr,wait_thr|
     stderr_buf = stderr.read
     stdout_buf = stdout.read
     stats = parse_stats.call(stderr_buf)
@@ -527,14 +606,14 @@ invoke_parallel = lambda do |msg=nil|
 
     if options[:debug]
       # special debug mode to show errors
-      err,stats = execute.call("parallel #{JOBS} < #{cmdfn}") # first try optimistically to run all jobs in parallel
+      err,stats = execute.call("#{parallel_command} #{JOBS} < #{cmdfn}") # first try optimistically to run all jobs in parallel
     else
-      err,stats = execute.call("parallel #{JOBS} --results #{tmpdir} --joblog #{joblog} < #{cmdfn}") # first try optimistically to run all jobs in parallel
+      err,stats = execute.call("#{parallel_command} #{JOBS} --results #{tmpdir} --joblog #{joblog} < #{cmdfn}") # first try optimistically to run all jobs in parallel
     end
     if err != 0 and not options[:debug]
       [4,1].each do |jobs|
         info.call("Failed to complete parallel run -- retrying with smaller RAM footprint!")
-        err,stats = execute.call(cmd+"|parallel  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
+        err,stats = execute.call(cmd+"|#{parallel_command}  -j #{jobs} --results #{tmpdir} --resume --joblog #{joblog}")
         break if err == 0
       end
       if err != 0
@@ -548,7 +627,7 @@ invoke_parallel = lambda do |msg=nil|
 end
 
 invoke_gemma = lambda do |extra_args, cache_hit = false, chr = "full", permutation = 1|
-  cmd = "time -v #{gemma_command2} #{extra_args.join(' ')} #{GEMMA_ARGS.join(' ')}"
+  cmd = timed.call("#{gemma_command2} #{extra_args.join(' ')} #{GEMMA_ARGS.join(' ')}")
   record[:gemma_command] = cmd
   return if cache_hit
   if options[:slurm]
@@ -751,7 +830,7 @@ if DO_COMPUTE_KINSHIP
 
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    execute.call "#{tar_env.call} #{tar_command} xJf #{ARCHIVE} -C #{tmpdir}"
   end
   info.call CHROMOSOMES
   if LOCO
@@ -782,7 +861,7 @@ else
   # with a valid cached archive sitting in cache_dir.
   if File.exist? ARCHIVE and not options[:force]
     info.call "Unpack archive #{ARCHIVE}!"
-    execute.call "tar xJf #{ARCHIVE} -C #{tmpdir}"
+    execute.call "#{tar_env.call} #{tar_command} xJf #{ARCHIVE} -C #{tmpdir}"
   end
 
   # The LOCO reduction needs the JSON the kinship step wrote (--input). Without
@@ -825,7 +904,7 @@ else
         if not File.exist?(kfn2) and json_in["archive"]
           # we aim to unpack the GRM archive once on reuse
           archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-          execute.call "env XZ_OPT='-T0' tar xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
+          execute.call "#{tar_env.call} #{tar_command} xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
         end
         gwas.call(chr,kfn2,pfn)
       end
@@ -1004,7 +1083,7 @@ if create_archive
   end
   info.call "Creating archive #{ARCHIVE}..."
   if options[:lmdb]
-    execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{LMDB} --transform='s,^#{tmpdir[1..-1]}/,,'"
+    execute.call "#{tar_env.call} #{tar_command} -cvJf #{ARCHIVE} #{LMDB} --transform='s,^#{tmpdir[1..-1]}/,,'"
   else
     if DO_COMPUTE_KINSHIP
       # *.log.txt too: the cache lambda above only counts a cache hit
@@ -1012,9 +1091,9 @@ if create_archive
       # "total computation time") already exist in tmpdir -- an
       # archive that only ever held the data file could never produce
       # a cache hit once unpacked into a fresh tmpdir on a later run.
-      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.cXX.txt #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
+      execute.call "#{tar_env.call} #{tar_command} -cvJf #{ARCHIVE} #{tmpdir}/*.cXX.txt #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
     else
-      execute.call "env XZ_OPT='-T0' tar -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
+      execute.call "#{tar_env.call} #{tar_command} -cvJf #{ARCHIVE} #{tmpdir}/*.assoc.txt #{tmpdir}/*.json #{tmpdir}/*.log.txt --transform='s,^#{tmpdir[1..-1]}/,,'"
     end
     # Leave the per-run logs beside the archive. They are in the .tar.xz
     # already, but reading one out of it means unpacking a multi-megabyte
