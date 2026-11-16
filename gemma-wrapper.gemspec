@@ -27,7 +27,8 @@ Gem::Specification.new do |s|
   # helper scripts under bin/ pull in extra gems; declare them as
   # optional runtime deps so `gem install bio-gemma-wrapper` produces a
   # working install for the *mdb* / RDF helpers as well.  The lmdb gem
-  # backs anno-mdb-to-rdf, anno2mdb, gemma-mdb-to-rdf and geno2mdb;
+  # backs anno-mdb-to-rdf, anno2mdb, gemma-mdb-to-rdf and geno2mdb (for which
+  # geno2mdb.py is the python alternative -- python lmdb + numpy, no gem);
   # rdf + rdf-vocab back the *-to-rdf helpers.
   s.add_runtime_dependency 'lmdb', '~> 0.6'
   s.add_runtime_dependency 'rdf', '~> 3.0'

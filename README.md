@@ -256,6 +256,31 @@ This should get the estimated 95% (significant) and 67% (suggestive) thresholds:
 
 To run gemma-wrapper on HPC use the '--slurm' switch.
 
+## Converting genotypes to lmdb
+
+The wrapper's --lmdb switch writes the *results* of a run into lmdb.  The
+*genotypes* are a different store, read by pangemma with `-g file.mdb`, and
+they are made from a BIMBAM file by `bin/geno2mdb.rb` (ruby lmdb gem) or by
+`bin/geno2mdb.py` (python lmdb + numpy), which write the same format:
+
+    ./bin/geno2mdb.py test/data/input/BXD_geno.txt.gz \
+        --snps test/data/input/BXD_snps.txt --out BXD_geno.txt.gz.mdb
+
+    gemma -g BXD_geno.txt.gz.mdb -p test/data/input/BXD_pheno.txt -gk -o K
+    gemma -g BXD_geno.txt.gz.mdb -p test/data/input/BXD_pheno.txt \
+        -loco 1 -gk -o K1
+    gemma -g BXD_geno.txt.gz.mdb -p test/data/input/BXD_pheno.txt \
+        -loco 1 -k K1.cXX.txt -lmm 9
+
+The store keeps both genotypes (float32, or one byte each with
+`--format Gb`) and the chromosome in the key, which is what makes LOCO cheap:
+pangemma walks the database once, instead of re-parsing the text for every
+chromosome.  On the BXD test data a 20-chromosome LOCO takes 3.5 s from the
+store against 10 s for GEMMA on the BIMBAM file, with identical results; Gb is
+4x smaller but quantises 0.5 to 63/127 = 0.496, which moves p-values in the
+third decimal.  Note that the store holds no allele labels, so an assoc file
+produced from it shows '-' in the allele1/allele0 columns.
+
 ## Development
 
 We use GNU Guix for development and deployment. Use the [.guix-deploy](.guix-deploy) script in the checked out git repo:

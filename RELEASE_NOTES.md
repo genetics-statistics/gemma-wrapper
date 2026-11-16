@@ -1,5 +1,10 @@
 ## Changelog v1.00-pre1
 
+* bin/geno2mdb.py converts BIMBAM genotypes to the lmdb store pangemma reads
+  (-g X.mdb), for machines where the ruby lmdb gem cannot be built; same
+  on-disk format as bin/geno2mdb.rb, with --format Gf (exact, default) or Gb
+  (bytes, 4x smaller, quantised)
+
 * Stable release!
 * lmdb output contains metadata
 * improved error handling
