@@ -417,14 +417,38 @@ if tar_command == nil
   error.call "<tar> command not found (looked in #{tool_dirs.empty? ? 'PATH' : tool_dirs.join(', ')}); --gemma-dir DIR names the toolchain"
 end
 
-# ---- Fetch chromosomes from SNP annotation file
-anno_idx = gemma_args.index '-a'
-raise "Expected GEMMA -a genotype file switch" if anno_idx == nil
-CHROMOSOMES = get_chromosomes(gemma_args[anno_idx+1])
-
-# ---- Compute HASH on inputs
+# ---- Genotypes: BIMBAM (-g) or PLINK (-bfile)
+#
+# LOCO enumerates chromosomes to build one job per chromosome, and GEMMA can only
+# leave one out on the BIMBAM path: measured against 0.98.6, `-bfile ... -loco 1'
+# and `-loco 2' produce the same K, i.e. -loco is silently ignored, so a wrapper
+# that accepted PLINK LOCO would return 20 identical full-data scans and call
+# them a LOCO run.  Refuse instead, and say what to convert to.
 geno_idx = gemma_args.index '-g'
-raise "Expected GEMMA -g genotype file switch" if geno_idx == nil
+bfile_idx = gemma_args.index '-bfile'
+if geno_idx == nil and bfile_idx == nil
+  raise "Expected a GEMMA genotype switch: -g FILE (BIMBAM or .mdb) or -bfile PREFIX"
+end
+if bfile_idx != nil and geno_idx == nil and options[:loco]
+  raise "LOCO needs -g (BIMBAM or an lmdb .mdb store), not -bfile: " +
+        "GEMMA 0.98.6 ignores -loco for PLINK input without saying so, so every " +
+        "chromosome would get the same full-data K. Convert the genotypes with " +
+        "plink --recode A (BIMBAM) or, for pangemma, bin/geno2mdb.py (lmdb)."
+end
+
+# ---- Fetch chromosomes from SNP annotation file
+#
+# Only LOCO needs the list (one job per chromosome), so a plain GWA without -a is
+# legitimate -- it used to be refused here before the branch that uses the list
+# was reached.
+anno_idx = gemma_args.index '-a'
+CHROMOSOMES = anno_idx ? get_chromosomes(gemma_args[anno_idx+1]) : []
+if options[:loco] and CHROMOSOMES.empty?
+  raise "Expected GEMMA -a genotype file switch: LOCO takes the chromosome list " +
+        "from the annotation file (rs pos chr), one job per chromosome. " +
+        "An lmdb genotype store has the chromosomes in its keys, but the job " +
+        "list still comes from here."
+end
 pheno_idx = gemma_args.index '-p'
 
 # if DO_COMPUTE_GWA and options[:phenotypes]
@@ -523,9 +547,19 @@ compute_hash = lambda do | phenofn = nil |
          hashme
        end
   debug.call("Hashing on ",hm)
-  hm.each do | item |
+  hm.each_with_index do | item, i |
+    if i > 0 and hm[i-1] == '-bfile'
+      # A PLINK prefix is not a file: the genotypes behind it are three, and
+      # hashing the prefix string alone would let a changed .bed reuse the old
+      # cache entry.
+      ['bed','bim','fam'].each do | ext |
+        fn = "#{item}.#{ext}"
+        error.call "Missing #{fn} for -bfile #{item}" if not File.file?(fn)
+        hashes << compute_hash(fn)
+      end
+      debug.call [item,hashes.last]
     # if entry is a file use the hash of its content, otherwise just the entry itself
-    if File.file?(item)
+    elsif File.file?(item)
       hashes << compute_hash(item)
       debug.call [item,hashes.last]
     else
@@ -575,9 +609,14 @@ gemma_args << '-outdir'
 gemma_args << tmpdir
 GEMMA_ARGS = gemma_args
 
-gemma_args.include? "-g" and "Genotype switch -g missing for GEMMA"
-geno_filename = gemma_args[gemma_args.index("-g")+1]
-geno_hash = compute_hash(geno_filename)
+geno_filename = geno_idx != nil ? gemma_args[geno_idx+1] : gemma_args[bfile_idx+1]
+geno_hash =
+  if geno_idx != nil
+    compute_hash(geno_filename)
+  else
+    # PLINK: the prefix names three files and the .bed holds the genotypes.
+    compute_hash(geno_filename+".bed")
+  end
 
 debug.call "Options: ",options,"\n" if !options[:quiet]
 
@@ -898,19 +937,37 @@ else
         end
       end
     end
+    # The GRM this GWA needs is normally inside the K archive, because the K run
+    # archived it and removed the .cXX.txt from the cache directory.  Unpack the
+    # archive the first time a file is missing, whichever branch asks for it --
+    # until this was hoisted out of the LOCO branch, a non-LOCO
+    # `--input K.json -- -lmm 2' against --cache-dir passed GEMMA a -k path that
+    # did not exist and died with "Enforce failed for file_kin ... open file".
+    grm_file = lambda do |kfn|
+      path = options[:cache_dir]+"/"+kfn
+      if not File.exist?(path) and json_in["archive"]
+        archive_grm = options[:cache_dir]+"/"+json_in["archive"]
+        if File.exist?(archive_grm)
+          info.call "Unpack archive #{archive_grm}!"
+          execute.call "#{tar_env.call} #{tar_command} xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts the whole archive
+        end
+      end
+      path
+    end
     if LOCO
       k_files.each do | chr, kfn | # call a GWA for each chromosome
-        kfn2 = options[:cache_dir]+"/"+kfn
-        if not File.exist?(kfn2) and json_in["archive"]
-          # we aim to unpack the GRM archive once on reuse
-          archive_grm = options[:cache_dir]+"/"+json_in["archive"]
-          execute.call "#{tar_env.call} #{tar_command} xJf #{archive_grm} -C #{options[:cache_dir]}" # extracts!!
-        end
-        gwas.call(chr,kfn2,pfn)
+        gwas.call(chr,grm_file.call(kfn),pfn)
       end
     else
-      kfn = json_in["files"][0][2]
-      gwas.call(nil,options[:cache_dir]+"/"+kfn,pfn)
+      # The K is named by the kinship JSON: gwas always passes -k, and the -k
+      # switch is refused on the command line, so without --input there is
+      # nothing to pass.  Say that, instead of dying on a nil dereference.
+      if not options[:input]
+        raise "GWA needs the --input JSON a kinship run writes (--json -- -gk), " +
+              "because gemma-wrapper names the K file itself and refuses -k on " +
+              "the command line. Re-run with --json --input <kinship.json>."
+      end
+      gwas.call(nil,grm_file.call(json_in["files"][0][2]),pfn)
     end
   else
     # Permute
