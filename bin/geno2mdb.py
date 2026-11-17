@@ -86,11 +86,15 @@ def read_snps(fn):
     unknown = 0
     with open(fn) as f:
         for lineno, line in enumerate(f, start=1):
-            fields = line.split()
+            # Comma or whitespace: qtl2-impute-bimbam.R writes
+            # "marker,pos,chr" while BXD_snps.txt is whitespace-separated.
+            fields = line.replace(',', ' ').split()
             if len(fields) < 3:
                 continue
             try:
-                pos = int(fields[1])
+                # R writes large positions as "9e+06", so parse a float and
+                # round rather than demanding an integer.
+                pos = int(round(float(fields[1])))
             except ValueError:
                 raise SystemExit(
                     f"{fn}:{lineno}: expected 'rs pos chr', got {line.strip()!r}")
