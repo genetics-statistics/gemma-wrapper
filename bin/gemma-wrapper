@@ -636,6 +636,28 @@ JOBS =
     ""
   end
 
+# Each parallel job is a GEMMA process, and GEMMA's heavy kernels are OpenBLAS
+# and OpenMP, so the default is jobs x cores threads on a machine with cores.
+# Measured on HLC (427 samples, 260283 SNPs) with a 20-chromosome LOCO at 12
+# jobs: 340 s wall and 17434 s of CPU with the default 96 threads per job,
+# against 146 s wall and 1634 s of CPU with one thread per job. Even a single
+# LMM run is slower with 96 threads than with 8 (69.6 s against 60.0 s), so the
+# oversubscription costs wall clock as well as CPU. Give each job one thread
+# unless the caller has said otherwise; `OPENBLAS_NUM_THREADS=4 gemma-wrapper`
+# still wins, and the single-run case is left alone because 8 threads is
+# genuinely faster there than 1.
+if options[:parallel]
+  # GEMMA uses both OpenBLAS (matrix products) and OpenMP (its own loops), so a
+  # cap that sets only one of them is half a cap: whichever the caller names is
+  # mirrored onto the other, and the default is one thread each.
+  cap = ENV['OPENBLAS_NUM_THREADS'] || ENV['OMP_NUM_THREADS'] || '1'
+  if ENV['OPENBLAS_NUM_THREADS'].nil? or ENV['OMP_NUM_THREADS'].nil?
+    ENV['OPENBLAS_NUM_THREADS'] ||= cap
+    ENV['OMP_NUM_THREADS'] ||= cap
+    info.call "Parallel jobs: #{cap} OpenBLAS/OpenMP thread(s) each (set OPENBLAS_NUM_THREADS or OMP_NUM_THREADS to change)"
+  end
+end
+
 invoke_parallel = lambda do |msg=nil|
   # parallel_cmds = ["echo 1","sleep 1 && echo 2", "false", "echo 3"]
   joblog = tmpdir+"/"+JOBLOG
