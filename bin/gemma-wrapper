@@ -371,6 +371,15 @@ end
 gemma_version_header = GEMMA_INFO.split("\n").grep(/GEMMA|Version/)[0].strip
 info.call "Using ",gemma_version_header,"\n"
 gemma_version = gemma_version_header.split(/[,\s]+/)[1]
+# A drop-in replacement announces its own version first and the GEMMA version it
+# is compatible with after it -- "Pangemma 1.0.0 --- GEMMA 0.98.5 compatible" --
+# and the version that decides compatibility is the second one.  Without this the
+# wrapper compared 1.0.0 against 0.98.4 by taking "1"/"0"/"0" apart, warned that
+# GEMMA was out of date on every run, and wrote that warning into the lmdb meta
+# record.
+if gemma_version_header =~ /GEMMA\s+([0-9]+\.[0-9]+(?:\.[0-9]+)?)/
+  gemma_version = $1
+end
 v_version, v_major, v_minor = gemma_version.split(".")
 info.call "Found #{gemma_version}, comparing against expected v0.#{GEMMA_V_MAJOR}.#{GEMMA_V_MINOR}"
 
