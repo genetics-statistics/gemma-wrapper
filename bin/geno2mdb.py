@@ -112,7 +112,7 @@ def read_snps(fn):
 
 
 def read_bimbam(fn, snps):
-    """Yield (chr, pos, name, values, n_missing) in input order."""
+    """Yield (chr, pos, name, values, n_missing, allele1, allele0) in input order."""
     first = True
     nsamples = None
     for lineno, line in enumerate(open_maybe_gzip(fn), start=1):
@@ -135,7 +135,10 @@ def read_bimbam(fn, snps):
         vals = np.array([np.nan if v in ("NA", "nan") else float(v)
                          for v in fields[3:]], dtype=np.float32)
         missing = int(np.isnan(vals).sum())
-        yield snps[name][0], snps[name][1], name, vals, missing
+        # BIMBAM is "snp, allele1, allele0, values..."; the two allele labels
+        # travel into the store so pangemma can print them.
+        a1, a0 = fields[1], fields[2]
+        yield snps[name][0], snps[name][1], name, vals, missing, a1, a0
 
 
 def main():
@@ -185,7 +188,7 @@ def main():
         marker = env.open_db(b"marker")
         info = env.open_db(b"info")
         with env.begin(write=True) as txn:
-            for line_no, (chr_code_, pos, name, vals, missing) in enumerate(rows, start=1):
+            for line_no, (chr_code_, pos, name, vals, missing, allele1, allele0) in enumerate(rows, start=1):
                 key = struct.pack(KEY_FMT, chr_code_, pos, line_no)
                 if args.format == "Gb":
                     # Clip the *values* to 0..254 and only then put the 255
@@ -199,7 +202,10 @@ def main():
                 else:
                     value = vals.astype("<f4").tobytes()
                 txn.put(key, value, db=geno)
-                txn.put(key, name.encode(), db=marker)
+                # "name<TAB>allele1<TAB>allele0": pangemma prints the last two
+                # as the assoc's allele1/allele0 columns.  A store built before
+                # this holds the name alone and those columns read '-'.
+                txn.put(key, f"{name}\t{allele1}\t{allele0}".encode(), db=marker)
             txn.put(b"format", args.format.encode(), db=info)
             txn.put(b"numsamples", struct.pack("<Q", nsamples), db=info)
             txn.put(b"nummarkers", struct.pack("<Q", len(rows)), db=info)
