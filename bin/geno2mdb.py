@@ -188,9 +188,14 @@ def main():
             for line_no, (chr_code_, pos, name, vals, missing) in enumerate(rows, start=1):
                 key = struct.pack(KEY_FMT, chr_code_, pos, line_no)
                 if args.format == "Gb":
-                    quantised = np.where(np.isnan(vals), MISSING_BYTE,
-                                         np.rint(vals * 127.0)).astype(np.int32)
-                    value = np.clip(quantised, 0, MISSING_BYTE - 1).astype(np.uint8).tobytes()
+                    # Clip the *values* to 0..254 and only then put the 255
+                    # sentinel in: clipping after the np.where used to clamp 255
+                    # down to 254, so a missing call arrived as a genotype of
+                    # 254/127 = 2.0 and nothing could tell it from a real one.
+                    quantised = np.clip(np.rint(np.nan_to_num(vals, nan=0.0) * 127.0), 0,
+                                        MISSING_BYTE - 1).astype(np.int32)
+                    quantised = np.where(np.isnan(vals), MISSING_BYTE, quantised)
+                    value = quantised.astype(np.uint8).tobytes()
                 else:
                     value = vals.astype("<f4").tobytes()
                 txn.put(key, value, db=geno)
