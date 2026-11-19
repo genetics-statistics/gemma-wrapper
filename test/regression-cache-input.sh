@@ -78,6 +78,48 @@ else
 	log_fail "second GWA run"
 fi
 
+echo "==> a changed K invalidates the GWA cache"
+# The K is an input to GWA, but it was never in the GWA cache key: the wrapper
+# appends -k itself, so `hashme' cannot see it.  Rebuild the cached kinship
+# archive with different values, drop any unpacked copy, and the next run has
+# to recompute -- it used to answer CACHE HIT from the .assoc.txt that the old
+# K produced.
+KARCHIVE=$(ls "$WORK"/*-gemma-cXX.tar.xz 2>/dev/null | head -1)
+if [ -z "$KARCHIVE" ]; then
+	log_fail "no kinship archive in $WORK to perturb"
+else
+	mkdir -p "$WORK/kperturb"
+	tar xJf "$KARCHIVE" -C "$WORK/kperturb"
+	python3 - "$WORK/kperturb" <<'PY'
+import glob, sys
+# Double every value: a rebuilt K differs throughout, not in one cell.  That
+# distinction matters because compute_hash fingerprints files over 100KB with
+# pfff, which *samples* rather than reads -- measured: a single changed cell in
+# this 580KB matrix leaves pfff's fingerprint identical.  K*2 is still positive
+# definite, so GEMMA accepts it.
+for fn in glob.glob(sys.argv[1] + "/*.cXX.txt"):
+    lines = open(fn).read().splitlines()
+    out = [lines[0]]
+    for line in lines[1:]:
+        f = line.split("\t")
+        out.append("\t".join([f[0]] + [repr(2.0 * float(v)) for v in f[1:] if v != ""]))
+    open(fn, "w").write("\n".join(out) + "\n")
+PY
+	tar cJf "$KARCHIVE" -C "$WORK/kperturb" .
+	rm -f "$WORK"/*.cXX.txt
+	if "$BIN" --json --cache-dir "$WORK" --input K.json -- \
+		-g "$IN/BXD_geno.txt.gz" -p "$IN/BXD_pheno.txt" -a "$IN/BXD_snps.txt" \
+		-c "$IN/BXD_covariates2.txt" -lmm 2 -maf 0.1 >GWA3.json 2>GWA3.err; then
+		if grep -q 'CACHE HIT' GWA3.err; then
+			log_fail "a changed K still hit the GWA cache"
+		else
+			log_pass "changed K recomputed the GWA"
+		fi
+	else
+		log_fail "GWA after a changed K (see GWA3.err)"
+	fi
+fi
+
 echo "==> LOCO with PLINK genotypes is refused"
 # The refusal is raised before any genotype file is opened, so a prefix that
 # does not exist is enough to reach it.

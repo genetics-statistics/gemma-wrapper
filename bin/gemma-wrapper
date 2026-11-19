@@ -849,6 +849,21 @@ gwas = lambda do | chr, kfn, pfn=nil, permutation=0 |
   kfn,pfn = reduce_samples.call(chr,kfn,pfn)
   # Update hash for each permutation
   hash = compute_hash.call(pfn)
+  # The K matrix is an input to GEMMA, but it is not in `hashme': the wrapper
+  # appends -k itself (and refuses the caller's), so a rebuilt K used to keep
+  # answering from the .assoc.txt computed against the old one.  Measured on
+  # BXD.8 (198 strains, lmm 9): 2060 of 21055 rows differed from what the
+  # per-chromosome workflow returned, until that GWA cache entry was removed by
+  # hand -- the stale K behind it even said 'analyzed individuals = 30' for a
+  # 67-sample trait.  Fold the K's own fingerprint into the per-chromosome key.
+  # compute_hash already uses pfff above 100KB, which is what keeps hashing a
+  # genome-sized GRM affordable (pfff samples the file rather than reading it
+  # whole).  Hashing the file GEMMA is actually given also covers
+  # reduce_samples' filtered GRM, which changes with the analysed sample set.
+  if kfn and File.file?(kfn)
+    hash = Digest::SHA1.hexdigest([hash,compute_hash(kfn)].join(' '))
+    debug.call [:kfn,kfn,:hash,hash]
+  end
   hashi, cache_hit = cache.call(chr,".assoc.txt",hash,permutation)
   if not cache_hit
     create_archive = true
